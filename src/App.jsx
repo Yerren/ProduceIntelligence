@@ -4,7 +4,7 @@ import Layout from './components/Layout.jsx'
 
 // Each project is lazy-loaded so its code only downloads when visited.
 const Home = lazy(() => import('./projects/home/HomePage.jsx'))
-const Example = lazy(() => import('./projects/example/index.jsx'))
+const FunZone = lazy(() => import('./projects/FunZone/index.jsx'))
 
 function App() {
   return (
@@ -12,7 +12,7 @@ function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Home />} />
-          <Route path="example/*" element={<Example />} />
+          <Route path="FunZone/*" element={<FunZone />} />
           <Route path="*" element={<h1 className="text-3xl">Page not found</h1>} />
         </Route>
       </Routes>

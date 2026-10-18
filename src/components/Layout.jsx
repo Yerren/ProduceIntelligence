@@ -7,7 +7,7 @@ function Layout() {
       <header className="border-b px-6 py-4 flex gap-6">
         <Link to="/" className="font-bold">Produce Intelligence</Link>
         <nav className="flex gap-4">
-          <Link to="/example">Example</Link>
+          <Link to="/FunZone">The Fun Zone</Link>
         </nav>
       </header>
       <main className="flex-1 p-6">
