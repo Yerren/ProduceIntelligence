@@ -9,6 +9,6 @@ export default defineConfig({
     tailwindcss(), 
   ],
   resolve: {
-    dedupe: ['react', 'react-dom', 'react-router-dom'], 
+    dedupe: ['react', 'react-dom', 'react-router'], 
   },
 })
