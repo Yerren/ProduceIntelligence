@@ -1,11 +1,15 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "produce-intelligence",
+  "main": "worker/index.js",
   "compatibility_date": "2026-10-01",
   "routes": [{ "pattern": "produceintelligence.co.nz", "custom_domain": true }, { "pattern": "www.produceintelligence.co.nz", "custom_domain": true }],
+  // Secret (set with `wrangler secret put`, per environment): TYPESAFE_API_KEY
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
   },
   "env": {
     // Separate Worker (produce-intelligence-dev) for checking changes before going live.
@@ -13,7 +17,9 @@
       "routes": [{ "pattern": "dev.produceintelligence.co.nz", "custom_domain": true }],
       "assets": {
         "directory": "./dist",
-        "not_found_handling": "single-page-application"
+        "binding": "ASSETS",
+        "not_found_handling": "single-page-application",
+        "run_worker_first": ["/api/*"]
       }
     }
   }

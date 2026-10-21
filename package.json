@@ -15,7 +15,8 @@
     "@tailwindcss/vite": "^4.3.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router": "^8.4.0"
+    "react-router": "^8.4.0",
+    "react-sketch-canvas": "^8.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
