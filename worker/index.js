@@ -5,8 +5,8 @@ const MAX_IMAGE_BYTES = 2 * 1024 * 1024
 const HOG_LEVELS = [
   'Not even an animal.',
   'Maybe an animal, but not a pig.',
-  'Probably a pig.',
-  'Clearly a pig.',
+  'Clearly a pig, but not drawn very well.',
+  'An okay drawing of a pig, given that it was done using a mouse and keyboard.',
   'An actually decently good drawing of a pig.',
 ]
 
