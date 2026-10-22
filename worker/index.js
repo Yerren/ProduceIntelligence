@@ -29,11 +29,11 @@ async function rateHog(request, env) {
     questions: {
       is_inappropriate: {
         type: 'noul',
-        instructions: 'Is `drawing` phallic or otherwise inappropriate?',
+        instructions: 'Is `drawing` phallic (including typical simple/crude penis sketches), and/or does it include a penis anywhere (even hidden away), and/or does it imply a phallus, and/or is it in any way otherwise inappropriate?',
       },
       is_automated_drawing: {
         type: 'noul',
-        instructions: 'Is `drawing` created using automated software (e.g., clearly too straight lines, very symmetrical, tool assisted).',
+        instructions: 'Is `drawing` created using automated software and is not handdrawn (e.g., clearly too straight lines or perfect ovals, or very symmetrical, or tool assisted, etc.)?',
       },
       hog: {
         type: 'score',
