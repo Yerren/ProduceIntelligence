@@ -4,13 +4,13 @@ const MAX_IMAGE_BYTES = 2 * 1024 * 1024
 // Score levels, low to high. Jev returns the level index (0-4); the client shows it as 1-5.
 const HOG_LEVELS = [
   'Not even an animal.',
-  'An animal, but not a pig.',
-  'Possibly a pig, if you squint.',
+  'Maybe an animal, but not a pig.',
+  'Probably a pig.',
   'Clearly a pig.',
-  'A masterpiece drawing of a pig.',
+  'An actually decently good drawing of a pig.',
 ]
 
-// Score sent back when Jev doesn't think the drawing is a pig at all.
+// Score sent back when Jev thinks the drawing inappropriate  
 const NOT_A_PIG_SCORE = -1
 
 async function rateHog(request, env) {
@@ -27,9 +27,9 @@ async function rateHog(request, env) {
     state: { drawing: ref },
     assets: { [ref]: { type: 'image', part: 'drawing' } },
     questions: {
-      is_pig: {
+      is_inappropriate: {
         type: 'noul',
-        instructions: 'Is `drawing` a drawing of a pig?',
+        instructions: 'Is `drawing` phallic or otherwise inappropriate?',
       },
       hog: {
         type: 'score',
@@ -55,7 +55,7 @@ async function rateHog(request, env) {
 
   const { answers } = await res.json()
   // noul is the probability (0-1) that the answer is yes.
-  if (answers.is_pig.noul < 0.5) return Response.json({ score: NOT_A_PIG_SCORE })
+  if (answers.is_inappropriate.noul > 0.50) return Response.json({ score: NOT_A_PIG_SCORE })
   return Response.json({ score: answers.hog.score + 1 })
 }
 
