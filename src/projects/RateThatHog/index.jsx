@@ -245,7 +245,7 @@ function RateThatHog() {
             <button className="border px-2" onClick={clear}>Clear</button>
             {import.meta.env.DEV && <button className="border px-2" onClick={addFakeScore}>Fake</button>}
             {/* The toolbar stretches to the canvas height, so mt-auto pins this to the canvas bottom. */}
-            <button className="mt-auto border px-2 bg-black text-white" onClick={exportDrawing}>Export</button>
+            <button className="mt-auto border px-2 bg-black text-white" onClick={exportDrawing}>Save hog</button>
           </div>
           <div style={{ cursor: erasing ? ERASER_CURSOR : PENCIL_CURSOR }}>
             <ReactSketchCanvas
