@@ -36,7 +36,7 @@ async function rateDrawing(dataUrl) {
   const image = await (await fetch(dataUrl)).blob()
   const res = await fetch('/api/rate-hog', { method: 'POST', headers: { 'Content-Type': 'image/png' }, body: image })
   if (!res.ok) throw new Error(`rate-hog failed: ${res.status}`)
-  return (await res.json()).score
+  return await res.json()
 }
 
 // The Illustrator SVGs only have a viewBox, and browsers won't draw an SVG to a canvas or use it
@@ -140,7 +140,9 @@ function RateThatHog() {
     setGraph(g => [...g, id])
     try {
       const dataUrl = await canvasRef.current.exportImage('png', { width: SIZE, height: SIZE })
-      const score = await rateDrawing(dataUrl)
+      const res = await rateDrawing(dataUrl)
+      const score = res.score
+      const is_automated = res.is_automated
       setScores(s => ({ ...s, [id]: score }))
     } catch (err) {
       console.error(err)
