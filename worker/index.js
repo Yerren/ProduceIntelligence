@@ -60,7 +60,7 @@ async function rateHog(request, env) {
   const { answers } = await res.json()
   // noul is the probability (0-1) that the answer is yes.
   if (answers.is_inappropriate.noul > 0.50) return Response.json({ score: NOT_A_PIG_SCORE })
-  return Response.json({ score: answers.hog.score + 1, is_automated: answers.is_automated_drawing})
+  return Response.json({ score: answers.hog.score + 1, automated: answers.is_automated_drawing.noul > 0.50 })
 }
 
 export default {

@@ -123,6 +123,8 @@ function RateThatHog() {
   // Every graph point refers to a stroke id; undo re-appends the id of the stroke it falls back to.
   const [graph, setGraph] = useState([])
   const [scores, setScores] = useState({})
+  // Stroke ids Jev thinks were drawn with automated software.
+  const [automated, setAutomated] = useState({})
   const [color, setColor] = useState('#000000')
   const [erasing, setErasing] = useState(false)
 
@@ -141,9 +143,9 @@ function RateThatHog() {
     try {
       const dataUrl = await canvasRef.current.exportImage('png', { width: SIZE, height: SIZE })
       const res = await rateDrawing(dataUrl)
-      const score = res.score
-      const is_automated = res.is_automated
-      setScores(s => ({ ...s, [id]: score }))
+      // "Not a pig" replies leave out automated.
+      setAutomated(a => ({ ...a, [id]: res.automated === true }))
+      setScores(s => ({ ...s, [id]: res.score }))
     } catch (err) {
       console.error(err)
     }
@@ -196,6 +198,7 @@ function RateThatHog() {
     strokes.current = []
     setGraph([])
     setScores({})
+    setAutomated({})
   }
 
   function setEraser(on) {
@@ -211,6 +214,7 @@ function RateThatHog() {
   const points = graph.map(id => scores[id])
   // Latest response in stroke order; a slow reply to an older stroke never replaces a newer one.
   const latest = points.findLast(score => score !== undefined)
+  const latestAutomated = automated[graph.findLast(id => scores[id] !== undefined)] ?? false
 
   return (
     <div
@@ -262,7 +266,7 @@ function RateThatHog() {
             />
           </div>
           {/* Part of the drawing group so it doesn't wrap with the graph. */}
-          <Meter score={latest} />
+          <Meter score={latest} automated={latestAutomated} />
         </div>
         <ScoreGraph points={points} />
       </div>
@@ -279,9 +283,9 @@ const METER = {
   scoreX: 95, scoreY: 396,
 }
 
-function Meter({ score }) {
+function Meter({ score, automated }) {
   const pct = (value, total) => `${(value / total) * 100}%`
-  const angry = score === NOT_A_PIG
+  const angry = score === NOT_A_PIG || automated
   const fill = (Math.max(0, score ?? 0) / 5) * (METER.tubeBottom - METER.tubeTop)
 
   return (
