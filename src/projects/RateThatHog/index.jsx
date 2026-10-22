@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ReactSketchCanvas } from 'react-sketch-canvas'
 import cursorSvg from './assets/cursor.svg?raw'
 import meterUrl from './assets/Meter.svg'
@@ -14,6 +14,9 @@ import stamp5Url from './assets/Stamp_5.svg'
 import titleUrl from './assets/Title.svg'
 
 const SIZE = 512
+// Toolbar + canvas + meter, plus the page padding. Phones lay the page out this wide and scale it
+// down to fit the screen, rather than clipping the drawing row.
+const PAGE_WIDTH = 860
 const HOG_PINK = '#ffa1e0'
 const NUMBER_FONT = '"Delicious Handrawn"'
 const PALETTE = [
@@ -123,6 +126,14 @@ function RateThatHog() {
   const [color, setColor] = useState('#000000')
   const [erasing, setErasing] = useState(false)
 
+  // index.html's viewport is shared with the other projects, so swap it only while this page is up.
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="viewport"]')
+    const original = meta.content
+    meta.content = `width=${PAGE_WIDTH}, user-scalable=no`
+    return () => { meta.content = original }
+  }, [])
+
   async function handleStroke() {
     const id = nextId.current++
     strokes.current.push(id)
@@ -203,6 +214,8 @@ function RateThatHog() {
     <div
       className={[
         'min-h-screen flex flex-col items-center justify-center gap-6 p-4',
+        // Blocks pinch zoom where browsers ignore user-scalable=no (iOS Safari).
+        'touch-pan-x touch-pan-y',
         // While the mouse is down the whole page is :active; the drawing area sets its own cursor inline.
         'cursor-(--page-cursor) active:cursor-(--press-cursor)',
         '[&_:is(button,input)]:cursor-(--hover-cursor) [&_:is(button,input):active]:cursor-(--page-cursor)',
