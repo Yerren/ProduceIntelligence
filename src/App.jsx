@@ -6,6 +6,7 @@ import Layout from './components/Layout.jsx'
 const Home = lazy(() => import('./projects/home/HomePage.jsx'))
 const FunZone = lazy(() => import('./projects/FunZone/index.jsx'))
 const RateThatHog = lazy(() => import('./projects/RateThatHog/index.jsx'))
+const HotOrCold = lazy(() => import('./projects/HotOrCold/index.jsx'))
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
       <Routes>
         {/* Full-screen, outside the shared Layout so there's no nav bar. */}
         <Route path="FunZone/RateThatHog" element={<RateThatHog />} />
+        <Route path="FunZone/HotOrCold" element={<HotOrCold />} />
         <Route element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="FunZone/*" element={<FunZone />} />
