@@ -10,7 +10,7 @@ function NavItem({ to, active, onClick, children }) {
       to={to}
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
-      className={`group relative -mx-2 inline-block whitespace-nowrap px-2 py-1 outline-none ${active ? 'font-bold' : ''}`}
+      className={`group relative -mr-2 ml-[calc(-0.5rem-var(--lsb))] inline-block whitespace-nowrap px-2 py-1 outline-none ${active ? 'font-bold' : ''}`}
     >
       {children}
       <span
@@ -32,6 +32,31 @@ function Layout() {
   useEffect(() => {
     if (!hash) window.scrollTo(0, 0)
   }, [pathname, hash])
+
+  // Optical left alignment: pull each text block left by its first glyph's actual side bearing
+  // (varies per letter and font size), so ink edges line up exactly with images.
+  useEffect(() => {
+    let cancelled = false
+    const ctx = document.createElement('canvas').getContext('2d')
+    const align = () => {
+      if (cancelled) return
+      document.querySelectorAll('main :is(h1, h2, h3, h4, p, .trim-left)').forEach((el) => {
+        const text = el.textContent.trimStart()
+        if (!text) return
+        const cs = getComputedStyle(el)
+        ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`
+        const bearing = -ctx.measureText(text[0]).actualBoundingBoxLeft
+        el.style.marginLeft = `${-bearing}px`
+      })
+    }
+    document.fonts.ready.then(align)
+    const observer = new ResizeObserver(() => requestAnimationFrame(align))
+    observer.observe(document.querySelector('main'))
+    return () => {
+      cancelled = true
+      observer.disconnect()
+    }
+  }, [pathname])
 
   const onHome = pathname === '/'
   const onMyWork = onHome && hash === `#${MY_WORK_ID}`

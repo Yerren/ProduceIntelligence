@@ -25,7 +25,7 @@ function Project({ name, url, description, imageLeft }) {
     >
       <div className="flex-1">
         <h3 className="text-3xl">{name}</h3>
-        <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm underline underline-offset-2">
+        <a href={url} target="_blank" rel="noopener noreferrer" className="trim-left inline-block text-sm underline underline-offset-2">
           {displayUrl(url)}
         </a>
         <p className="mt-3 leading-relaxed">{description}</p>

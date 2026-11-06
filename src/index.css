@@ -15,3 +15,22 @@
     @apply bg-white text-black dark:bg-black dark:text-white;
   }
 }
+
+/*
+ * Optical left alignment: glyphs have a built-in left side bearing that scales with font size,
+ * so large headings look indented relative to body text. Pull text left by roughly Quicksand's
+ * bearing so every text edge lines up with the images. Tweak --lsb if it looks off.
+ */
+:root {
+  --lsb: 0.06em;
+}
+
+@layer base {
+  h1, h2, h3, h4, p {
+    margin-left: calc(-1 * var(--lsb));
+  }
+}
+
+@utility trim-left {
+  margin-left: calc(-1 * var(--lsb));
+}
