@@ -7,6 +7,7 @@ const Home = lazy(() => import('./projects/home/HomePage.jsx'))
 const FunZone = lazy(() => import('./projects/FunZone/index.jsx'))
 const RateThatHog = lazy(() => import('./projects/RateThatHog/index.jsx'))
 const HotOrCold = lazy(() => import('./projects/HotOrCold/index.jsx'))
+const Slides = lazy(() => import('./projects/Slides/index.jsx'))
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
         <Route path="FunZone/HotOrCold" element={<HotOrCold />} />
         <Route element={<Layout />}>
           <Route index element={<Home />} />
+          <Route path="Slides" element={<Slides />} />
           <Route path="FunZone/*" element={<FunZone />} />
           <Route path="*" element={<h1 className="text-3xl">Page not found</h1>} />
         </Route>

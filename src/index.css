@@ -1,7 +1,17 @@
-@import url('https://fonts.googleapis.com/css2?family=Delicious+Handrawn&family=Quicksand&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Delicious+Handrawn&family=Quicksand:wght@300..700&display=swap');
 
 @import "tailwindcss";
 
 @theme {
   --default-font-family: "Quicksand",var(--font-sans) ;
+}
+
+@layer base {
+  html {
+    color-scheme: light dark;
+  }
+
+  body {
+    @apply bg-white text-black dark:bg-black dark:text-white;
+  }
 }
