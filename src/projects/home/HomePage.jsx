@@ -35,7 +35,7 @@ function Project({ name, url, description, imageLeft }) {
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`Visit ${name}`}
-        className={`${circleClasses} transition-transform hover:scale-105 focus-visible:scale-105 motion-reduce:transition-none`}
+        className={circleClasses}
       >
         {name} icon
       </a>
@@ -70,9 +70,7 @@ function HomePage() {
         </div>
       </section>
 
-      <hr className="mx-auto my-20 w-2/3 border-t-2 border-current" />
-
-      <section id="my-work" className="scroll-mt-10">
+      <section id="my-work" className="mt-20 scroll-mt-10">
         <h2 className="text-5xl">My Work</h2>
         <div className="mt-10 flex flex-col gap-16 md:gap-20">
           {PROJECTS.map((project, i) => (

@@ -10,12 +10,12 @@ function NavItem({ to, active, onClick, children }) {
       to={to}
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
-      className={`group relative -mx-2 inline-block whitespace-nowrap px-2 outline-none ${active ? 'font-bold' : ''}`}
+      className={`group relative -mx-2 inline-block whitespace-nowrap px-2 py-1 outline-none ${active ? 'font-bold' : ''}`}
     >
       {children}
       <span
         aria-hidden="true"
-        className="absolute inset-0 whitespace-nowrap bg-black px-2 text-white transition-[clip-path] duration-300 ease-out [clip-path:inset(0_100%_0_0)] group-hover:[clip-path:inset(0)] group-focus-visible:[clip-path:inset(0)] motion-reduce:transition-none dark:bg-white dark:text-black"
+        className="absolute inset-0 whitespace-nowrap bg-black px-2 py-1 text-white transition-[clip-path] duration-300 ease-out [clip-path:inset(0_100%_0_0)] group-hover:[clip-path:inset(0)] group-focus-visible:[clip-path:inset(0)] motion-reduce:transition-none dark:bg-white dark:text-black"
       >
         {children}
       </span>
@@ -54,19 +54,17 @@ function Layout() {
   ]
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
-      <aside className="border-b-2 border-current md:w-80 md:shrink-0 md:border-b-0 md:border-r-2">
-        <div className="flex items-center justify-between px-6 py-4 md:hidden">
-          <Link to="/" onClick={closeMenu} className="text-xl font-bold">
-            Produce Intelligence
-          </Link>
+    <div className="mx-auto flex min-h-screen max-w-7xl flex-col md:flex-row">
+      {/* Desktop divider is a pseudo-element inset ~1cm from the top and bottom of the page. */}
+      <aside className="relative border-b-2 border-current md:w-80 md:shrink-0 md:border-b-0 md:after:absolute md:after:inset-y-10 md:after:right-0 md:after:w-0.5 md:after:bg-current">
+        <div className="flex items-center px-6 py-4 md:hidden">
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
             aria-expanded={menuOpen}
             aria-controls="site-nav"
             aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-            className="-mr-2 p-2"
+            className="-ml-2 p-2"
           >
             <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               {menuOpen ? (
