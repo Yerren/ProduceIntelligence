@@ -79,10 +79,10 @@ function Layout() {
   ]
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-7xl flex-col md:flex-row">
+    <div className="mx-auto flex min-h-screen max-w-7xl flex-col lg:flex-row">
       {/* Desktop divider is a pseudo-element inset ~1cm from the top and bottom of the page. */}
-      <aside className="relative border-b-2 border-current md:w-80 md:shrink-0 md:border-b-0 md:after:absolute md:after:inset-y-10 md:after:right-0 md:after:w-0.5 md:after:bg-current">
-        <div className="flex items-center px-6 py-4 md:hidden">
+      <aside className="relative border-b-2 border-current lg:w-80 lg:shrink-0 lg:border-b-0 lg:after:absolute lg:after:inset-y-10 lg:after:right-0 lg:after:w-0.5 lg:after:bg-current">
+        <div className="flex items-center px-6 py-4 lg:hidden">
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
@@ -103,7 +103,7 @@ function Layout() {
 
         <nav
           id="site-nav"
-          className={`${menuOpen ? 'flex' : 'hidden'} flex-col items-start gap-5 px-6 pb-8 text-3xl md:flex md:gap-8 md:px-10 md:py-16 md:text-4xl`}
+          className={`${menuOpen ? 'flex' : 'hidden'} flex-col items-start gap-5 px-6 pb-8 text-3xl lg:flex lg:gap-8 lg:px-10 lg:py-16 lg:text-4xl`}
         >
           {items.map((item) => (
             <NavItem key={item.label} to={item.to} active={item.active} onClick={item.onClick}>
@@ -113,7 +113,7 @@ function Layout() {
         </nav>
       </aside>
 
-      <main className="min-w-0 flex-1 px-6 py-10 md:px-16 md:py-16">
+      <main className="min-w-0 flex-1 px-6 py-10 lg:px-16 lg:py-16">
         <Outlet />
       </main>
     </div>
