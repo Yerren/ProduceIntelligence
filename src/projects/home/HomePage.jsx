@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router'
 import { wipeUnderline } from '../../styles/wipeUnderline'
+import SocialIcons from '../../components/SocialIcons.jsx'
 import profileImg from './assets/profile.jpg'
 import docxedoLogo from './assets/docxedo_logo.png'
 import adamLogo from './assets/adam-logo.png'
@@ -99,9 +100,14 @@ function HomePage() {
 
   return (
     <div className="max-w-4xl">
-      <header>
-        <h1 className="text-5xl lg:text-6xl">Hi, I'm Yerren</h1>
-        <p className="mt-2 text-xl lg:text-2xl">It's nice to meet you</p>
+      <header className="flex items-start justify-between gap-6">
+        <div>
+          {/* capTrim makes the h1's box top its letters' top, so the icons line up with "Hi". */}
+          <h1 className={`text-5xl lg:text-6xl ${capTrim}`}>Hi, I'm Yerren</h1>
+          <p className="mt-2 text-xl lg:text-2xl">It's nice to meet you</p>
+        </div>
+        {/* Below lg the icons live in the top menu bar instead (see Layout). */}
+        <SocialIcons className="hidden lg:flex" />
       </header>
 
       <section className={`mt-12 ${rowClasses} max-[300px]:flex-col`}>

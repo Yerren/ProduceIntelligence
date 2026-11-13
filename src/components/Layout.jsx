@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router'
+import SocialIcons from './SocialIcons.jsx'
 
 const MY_WORK_ID = 'my-work'
 
@@ -82,7 +83,7 @@ function Layout() {
     <div className="mx-auto flex min-h-screen max-w-7xl flex-col lg:flex-row">
       {/* Desktop divider is a pseudo-element inset ~1cm from the top and bottom of the page. */}
       <aside className="relative border-b-2 border-current lg:w-80 lg:shrink-0 lg:border-b-0 lg:after:absolute lg:after:inset-y-10 lg:after:right-0 lg:after:w-0.5 lg:after:bg-current">
-        <div className="flex items-center px-6 py-4 lg:hidden">
+        <div className="flex items-center justify-between px-6 py-4 lg:hidden">
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
@@ -99,6 +100,8 @@ function Layout() {
               )}
             </svg>
           </button>
+          {/* On the home page the social icons sit in the top bar below lg (in the page header above it). */}
+          {onHome && <SocialIcons />}
         </div>
 
         <nav
