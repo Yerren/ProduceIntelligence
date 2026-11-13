@@ -7,11 +7,13 @@ import freshWdlLogo from './assets/FreshWDL.png'
 const LOREM =
   'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris eget molestie augue, a commodo ipsum. Nam et nunc commodo, rhoncus elit vel, maximus tellus. Pellentesque et velit fringilla odio scelerisque convallis. Sed vel ante ac risus malesuada pulvinar iaculis at eros. Donec ullamcorper augue id placerat suscipit.'
 
+const freshWDLDescription = 'FreshWDL is a lightweight, pure JavaScript alternative to WDL (which ran on Flash). This allows for users to access it from nearly any device and platform.'
+
 // Projects alternate image right / image left, in this order.
 const PROJECTS = [
   { name: 'Docxedo', url: 'https://www.docxedo.ai/', description: LOREM, icon: docxedoLogo, contain: true },
   { name: 'Produce Intelligence', url: 'https://pearlsort.com/a.d.a.m', description: LOREM },
-  { name: 'FreshWDL', url: 'https://github.com/Yerren/FreshWDL', description: LOREM, icon: freshWdlLogo },
+  { name: 'FreshWDL', url: 'https://github.com/Yerren/FreshWDL', description: freshWDLDescription, icon: freshWdlLogo },
 ]
 
 // Trims the space above the capital letters, so a heading's box top is its letters' top and circles align with it.
