@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router'
+import { wipeUnderline } from '../../styles/wipeUnderline'
 import profileImg from './assets/profile.jpg'
 import docxedoLogo from './assets/docxedo_logo.png'
 import adamLogo from './assets/adam-logo.png'
@@ -27,9 +28,9 @@ const adamDescription = (
 
 // Projects alternate image right / image left, in this order.
 const PROJECTS = [
-  { name: 'Docxedo', url: 'https://www.docxedo.ai/', description: docxedoDescription, icon: docxedoLogo, contain: true },
-  { name: 'A.D.A.M.', url: 'https://pearlsort.com/a.d.a.m', description: adamDescription, icon:adamLogo},
-  { name: 'FreshWDL', url: 'https://github.com/Yerren/FreshWDL', description: freshWDLDescription, icon: freshWdlLogo },
+  { name: 'Docxedo', role: 'Lead Developer', url: 'https://www.docxedo.ai/', description: docxedoDescription, icon: docxedoLogo, contain: true },
+  { name: 'A.D.A.M.', role: 'Sole Developer', url: 'https://pearlsort.com/a.d.a.m', description: adamDescription, icon:adamLogo},
+  { name: 'FreshWDL', role: 'Creator', url: 'https://github.com/Yerren/FreshWDL', description: freshWDLDescription, icon: freshWdlLogo },
 ]
 
 // Trims the space above the capital letters, so a heading's box top is its letters' top and circles align with it.
@@ -38,10 +39,6 @@ const capTrim = '[text-box:trim-start_cap_alphabetic]'
 const circleClasses =
   'flex h-[clamp(4rem,100vw-15rem,10rem)] w-[clamp(4rem,100vw-15rem,10rem)] shrink-0 items-center justify-center overflow-hidden rounded-full bg-black text-center text-[clamp(0.6rem,(100vw-15rem)*0.11,1.125rem)] text-white max-[300px]:h-40 max-[300px]:w-40 max-[300px]:text-lg lg:h-48 lg:w-48 dark:bg-white dark:text-black'
 
-function displayUrl(url) {
-  return url.replace(/^https?:\/\//, '').replace(/\/$/, '')
-}
-
 // Circle + text rows: the circle floats and text wraps under its square box. Below 400px the circle
 // shrinks with the viewport (100vw - 15rem) so the room left for headings stays roughly constant.
 // Below 300px they stack instead (full-size circle, no float).
@@ -49,17 +46,11 @@ const rowClasses = 'flow-root max-[300px]:flex max-[300px]:items-start max-[300p
 const floatLeft = 'float-left mr-[min(8vw,2rem)] mb-4 max-[300px]:m-0! lg:mr-12'
 const floatRight = 'float-right ml-[min(8vw,2rem)] mb-4 max-[300px]:m-0! lg:ml-12'
 
-// Project links shrink to fit the room beside the circle (same maths as above), so they never drop below it.
-// --chars is the link's length; 0.56em is Quicksand's widest average character width (measured), and the
-// extra 1rem of slack covers a desktop scrollbar, which 100vw includes.
-// Project headings likewise shrink so their longest word (--word) fits beside the circle.
+// Project headings shrink so their longest word (--word) fits beside the circle.
 const headingSize =
   'text-[clamp(1.25rem,max(100vw-16rem,11rem-8vw)/(var(--word)*0.6),1.875rem)] max-[300px]:text-3xl lg:text-3xl'
 
-const linkSize =
-  'text-[clamp(0.5rem,max(100vw-16rem,11rem-8vw)/(var(--chars)*0.56),0.875rem)] max-[300px]:text-sm lg:text-sm'
-
-function Project({ name, url, description, icon, contain, imageLeft }) {
+function Project({ name, role, url, description, icon, contain, imageLeft }) {
   // Image circles drop the black fill: it bled through the anti-aliased edge as a thin dark ring.
   const circleFill = !icon ? 'p-6' : contain ? 'bg-neutral-100! p-5' : 'bg-transparent!'
   return (
@@ -83,12 +74,12 @@ function Project({ name, url, description, icon, contain, imageLeft }) {
           style={{ '--word': Math.max(...name.split(' ').map((w) => w.length)) }}
           className={`${headingSize} ${capTrim}`}
         >
-          {name}
+          <a href={url} target="_blank" rel="noopener noreferrer" className="group outline-none">
+            <span className={wipeUnderline}>{name}</span>
+          </a>
         </h3>
-        <a href={url} target="_blank" rel="noopener noreferrer" style={{ '--chars': displayUrl(url).length }} className={`trim-left inline-block whitespace-nowrap underline underline-offset-2 ${linkSize}`}>
-          {displayUrl(url)}
-        </a>
-        <p className="mt-3 leading-relaxed">{description}</p>
+        <p className="text-sm text-neutral-600 dark:text-neutral-400">{role}</p>
+        <p className="mt-2 leading-relaxed">{description}</p>
       </div>
     </article>
   )
