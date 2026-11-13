@@ -8,12 +8,16 @@ import freshWdlLogo from './assets/FreshWDL.png'
 const LOREM =
   'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris eget molestie augue, a commodo ipsum. Nam et nunc commodo, rhoncus elit vel, maximus tellus. Pellentesque et velit fringilla odio scelerisque convallis. Sed vel ante ac risus malesuada pulvinar iaculis at eros. Donec ullamcorper augue id placerat suscipit.'
 
-const freshWDLDescription = 'FreshWDL is an open-source, lightweight alternative to Weather Display Live (which ran on Flash) - allowing users to access it from nearly any device and platform. It is being used on 500+ websites around the globe and has been translated into 17+ different languages by the community. FreshWDL is primarily written in pure JavaScript, HTML, and CSS, and makes use of Chart.js, EaselJS, and TweenJS to display the information graphically using fully custom built gauges.'
+const docxedoDescription = 'Docxedo is a Microsoft Word add-in that applies a law firm’s complete house style to any document in one click. It turns unformatted or off-brand documents into finished, on-brand documents in seconds. To make such a deceptively complex task possible, Docxedo first performs very fine-grained classification across the entire document (possibly 100s of pages long) to determine the purpose of every single section, paragraph, and even individual word. It then deterministically cleans up the document, applies the firm’s specific styles, converts all manual numbering, replaces and restructures sections, adds comments for review, and far, far more.'
+
+const freshWDLDescription = 'FreshWDL is an open-source, lightweight alternative to Weather Display Live (which ran on Flash) - allowing users to access it from nearly any device and platform. It is being used on 500+ websites around the globe and has been translated into 17+ different languages by the community. FreshWDL is primarily written in pure JavaScript, HTML, and CSS, and makes use of Chart.js, EaselJS, and TweenJS to display the information graphically using fully custom built-gauges.'
+
+const adamDescription = 'A.D.A.M. is a bespoke deep learning system for the grading of fresh produce primarily focused on cherries but also expanded into blueberries. A.D.A.M. reduced error rates by over 90%, saving customers an estimated $200+ per tonne of fruit packed (with individual customers packing 100s to 1000s of tonnes per season), and has resulted in 100,000kgs+ of reduced food waste. A.D.A.M. consists of multiple custom deep learning models built in TensorFlow/Keras. These were iteratively improved upon using active learning, synthetic data, targeted data collection, semi-supervised learning, image pre-processing, and complex augmentation. I was the sole engineer, responsible for research and development, project management, the entire data pipeline, monitoring, and more. I was also customers’ point of contact for software, dealing with sales, feedback, operator training, and technical support.</br>A portion of this work won the Best Paper Award at IVCNZ 2020 - read the paper here.'
 
 // Projects alternate image right / image left, in this order.
 const PROJECTS = [
-  { name: 'Docxedo', url: 'https://www.docxedo.ai/', description: LOREM, icon: docxedoLogo, contain: true },
-  { name: 'A.D.A.M.', url: 'https://pearlsort.com/a.d.a.m', description: LOREM, icon:adamLogo},
+  { name: 'Docxedo', url: 'https://www.docxedo.ai/', description: docxedoDescription, icon: docxedoLogo, contain: true },
+  { name: 'A.D.A.M.', url: 'https://pearlsort.com/a.d.a.m', description: adamDescription, icon:adamLogo},
   { name: 'FreshWDL', url: 'https://github.com/Yerren/FreshWDL', description: freshWDLDescription, icon: freshWdlLogo },
 ]
 
