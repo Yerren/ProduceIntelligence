@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router'
-import profileImg from './assets/profile_wide.jpg'
+import profileImg from './assets/profile.jpg'
 import docxedoLogo from './assets/docxedo_logo.png'
 import adamLogo from './assets/adam-logo.png'
 import freshWdlLogo from './assets/FreshWDL.png'
