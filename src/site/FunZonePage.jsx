@@ -20,7 +20,7 @@ function FunZoneHome() {
 }
 
 function FunZoneDetails() {
-  return <div><h1 className="text-3xl">Okay. So. I lied.</h1><p>There's nothing here yet either.</p><p>Sorry.</p></div>
+  return <div><h1 className="text-3xl">Okay. So. I lied.</h1><p>There's nothing here yet.</p><p>Sorry.</p></div>
 }
 
 export default FunZonePage
