@@ -1,14 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { ReactSketchCanvas } from 'react-sketch-canvas'
-import eraserSvg from './assets/eraser.svg?raw'
-import pencilSvg from './assets/pencil.svg?raw'
+import DrawingCanvas from '../shared/DrawingCanvas.jsx'
+import ScoreGraph from '../shared/ScoreGraph.jsx'
+import { CANVAS_SIZE, postDrawing, useFixedPageWidth } from '../shared/drawing.js'
 
-const SIZE = 512
-// Toolbar + canvas, plus the page padding. Phones lay the page out this wide and scale it down to
-// fit the screen, rather than clipping the drawing row.
+// Toolbar + canvas, plus the page padding.
 const PAGE_WIDTH = 656
 
-// Scores run from -1 (cold) to +1 (hot).
 function formatScore(score) {
   return `${score > 0 ? '+' : ''}${score.toFixed(2)}`
 }
@@ -33,34 +30,10 @@ async function revealWord(wordToken) {
   return (await res.json()).word
 }
 
-async function rateDrawing(dataUrl, wordToken) {
-  const image = await (await fetch(dataUrl)).blob()
-  const res = await fetch('/api/hot-or-cold', {
-    method: 'POST',
-    headers: { 'Content-Type': 'image/png', 'X-Word-Token': wordToken },
-    body: image,
-  })
-  if (!res.ok) throw new Error(`hot-or-cold failed: ${res.status}`)
-  return await res.json()
+function rateDrawing(dataUrl, wordToken) {
+  return postDrawing('/api/hot-or-cold', dataUrl, { 'X-Word-Token': wordToken })
 }
 
-// The Illustrator SVGs only have a viewBox, and browsers won't use an SVG as a cursor without an
-// intrinsic size, so give it one.
-function sizeSvg(svg, width, height) {
-  return svg.replace('<svg ', `<svg width="${width}" height="${height}" `)
-}
-
-// A CSS cursor from an icon SVG of size viewW x viewH, drawn `width` px wide, with the hotspot at
-// `hot` (viewBox units).
-function svgCursor(svg, viewW, viewH, width, [hotX, hotY], fallback) {
-  const scale = width / viewW
-  const icon = sizeSvg(svg.replace(/<\?xml[^>]*\?>/, ''), width, Math.ceil(viewH * scale))
-  return `url("data:image/svg+xml,${encodeURIComponent(icon)}") ${Math.round(hotX * scale)} ${Math.round(hotY * scale)}, ${fallback}`
-}
-
-// Hotspots: the pencil's tip and the middle of the eraser's rubbing edge.
-const PENCIL_CURSOR = svgCursor(pencilSvg, 80.1, 87, 32, [5, 86], 'crosshair')
-const ERASER_CURSOR = svgCursor(eraserSvg, 77.3, 79.6, 32, [18, 74], 'crosshair')
 
 function HotOrCold() {
   const canvasRef = useRef(null)
@@ -82,13 +55,7 @@ function HotOrCold() {
   const [pattern, setPattern] = useState(null)
   const [gaveUp, setGaveUp] = useState(false)
 
-  // index.html's viewport is shared with the other projects, so swap it only while this page is up.
-  useEffect(() => {
-    const meta = document.querySelector('meta[name="viewport"]')
-    const original = meta.content
-    meta.content = `width=${PAGE_WIDTH}, user-scalable=no`
-    return () => { meta.content = original }
-  }, [])
+  useFixedPageWidth(PAGE_WIDTH)
 
   function pickWord() {
     const next = fetchWord()
@@ -107,7 +74,7 @@ function HotOrCold() {
     const current = word.current
     setGraph(g => [...g, id])
     try {
-      const dataUrl = await canvasRef.current.exportImage('png', { width: SIZE, height: SIZE })
+      const dataUrl = await canvasRef.current.exportImage('png', { width: CANVAS_SIZE, height: CANVAS_SIZE })
       const res = await rateDrawing(dataUrl, (await current).token)
       if (word.current !== current) return
       setScores(s => ({ ...s, [id]: res.score }))
@@ -205,18 +172,7 @@ function HotOrCold() {
             {!autoSubmit && <button className="border px-2 bg-black text-white" onClick={submit}>Submit</button>}
             {import.meta.env.DEV && <button className="border px-2" onClick={addFakeScore}>Fake</button>}
           </div>
-          <div style={{ cursor: erasing ? ERASER_CURSOR : PENCIL_CURSOR }}>
-            <ReactSketchCanvas
-              ref={canvasRef}
-              width={`${SIZE}px`}
-              height={`${SIZE}px`}
-              canvasColor="#ffffff"
-              strokeColor="#000000"
-              strokeWidth={4}
-              eraserWidth={16}
-              onStroke={handleStroke}
-            />
-          </div>
+          <DrawingCanvas ref={canvasRef} erasing={erasing} onStroke={handleStroke} />
         </div>
         <div className="flex-1 flex flex-col items-center gap-2 min-[1200px]:flex-none">
           {/* Fixed height so the first score doesn't shift the layout. */}
@@ -226,9 +182,20 @@ function HotOrCold() {
           <div
             ref={graphArea}
             className="relative flex-1 min-h-24 min-[1200px]:flex-none min-[1200px]:h-(--size)"
-            style={{ width: SIZE, maxHeight: SIZE, '--size': `${SIZE}px` }}
+            style={{ width: CANVAS_SIZE, maxHeight: CANVAS_SIZE, '--size': `${CANVAS_SIZE}px` }}
           >
-            {graphHeight > 0 && <ScoreGraph points={points} height={graphHeight} />}
+            {graphHeight > 0 && (
+              <ScoreGraph
+                points={points}
+                width={CANVAS_SIZE}
+                height={graphHeight}
+                levels={GRAPH_LEVELS}
+                padLeft={40}
+                fontSize={16}
+                color="#000000"
+                className="absolute inset-0"
+              />
+            )}
           </div>
         </div>
       </div>
@@ -247,6 +214,9 @@ function useHeight(ref) {
   return height
 }
 
+// Scores run from -1 (cold) to +1 (hot).
+const GRAPH_LEVELS = [-1, -0.5, 0, 0.5, 1]
+
 const isLetter = char => /\p{L}/u.test(char)
 
 // The answer as one slot per letter, empty until revealed, with spaces and hyphens as they are.
@@ -259,32 +229,6 @@ function AnswerSlots({ pattern }) {
         return <span key={i} className="w-6 mx-0.5 text-center border-b-2">{char === '_' ? '' : char}</span>
       })}
     </div>
-  )
-}
-
-const PAD = { left: 40, right: 8, top: 12, bottom: 12 }
-const GRAPH_LEVELS = [-1, -0.5, 0, 0.5, 1]
-
-function ScoreGraph({ points, height }) {
-  const plotWidth = SIZE - PAD.left - PAD.right
-  const plotHeight = height - PAD.top - PAD.bottom
-  // Trailing points still awaiting a score take no room, so the graph only moves once a score arrives.
-  const span = points.findLastIndex(score => score !== undefined)
-  const x = i => PAD.left + (span > 0 ? (i / span) * plotWidth : 0)
-  const y = score => PAD.top + ((1 - score) / 2) * plotHeight
-  // Pending (or failed) points are skipped; the line joins the scores we have.
-  const known = points.flatMap((score, i) => (score === undefined ? [] : [[x(i), y(score)]]))
-
-  return (
-    <svg width={SIZE} height={height} overflow="visible" className="absolute inset-0 text-current">
-      {GRAPH_LEVELS.map(level => (
-        <g key={level}>
-          <line x1={PAD.left} x2={SIZE - PAD.right} y1={y(level)} y2={y(level)} stroke="currentColor" strokeOpacity={0.15} />
-          <text x={PAD.left - 6} y={y(level)} textAnchor="end" dominantBaseline="middle" fontSize={16} fill="currentColor" fillOpacity={0.6}>{level}</text>
-        </g>
-      ))}
-      <polyline points={known.map(p => p.join(',')).join(' ')} fill="none" stroke="#000000" strokeWidth={10} strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
   )
 }
 

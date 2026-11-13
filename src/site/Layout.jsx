@@ -24,7 +24,7 @@ function NavItem({ to, active, onClick, children }) {
   )
 }
 
-// Shared shell (sidebar nav) wrapped around every project.
+// Shared shell (sidebar nav) wrapped around every page of the main site.
 function Layout() {
   const { pathname, hash } = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)

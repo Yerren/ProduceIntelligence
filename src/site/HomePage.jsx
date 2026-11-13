@@ -1,15 +1,12 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router'
-import { wipeUnderline } from '../../styles/wipeUnderline'
-import SocialIcons from '../../components/SocialIcons.jsx'
+import { capTrim, wipeUnderline } from './styles.js'
+import SocialIcons from './SocialIcons.jsx'
 import profileImg from './assets/profile.jpg'
 import docxedoLogo from './assets/docxedo_logo.png'
 import adamLogo from './assets/adam-logo.png'
 import freshWdlLogo from './assets/FreshWDL.png'
 import adamPaper from './assets/PID6693039.pdf'
-
-const LOREM =
-  'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris eget molestie augue, a commodo ipsum. Nam et nunc commodo, rhoncus elit vel, maximus tellus. Pellentesque et velit fringilla odio scelerisque convallis. Sed vel ante ac risus malesuada pulvinar iaculis at eros. Donec ullamcorper augue id placerat suscipit.'
 
 const docxedoDescription = 'Docxedo is a Microsoft Word add-in that applies a law firm’s complete house style to any document in one click. It turns unformatted or off-brand documents into finished, on-brand documents in seconds. To make such a deceptively complex task possible, Docxedo first performs very fine-grained classification across the entire document (possibly 100s of pages long) to determine the purpose of every single section, paragraph, and even individual word. It then deterministically cleans up the document, applies the firm’s specific styles, converts all manual numbering, replaces and restructures sections, adds comments for review, and far, far more.'
 
@@ -33,9 +30,6 @@ const PROJECTS = [
   { name: 'A.D.A.M.', role: 'Sole Developer', url: 'https://pearlsort.com/a.d.a.m', description: adamDescription, icon:adamLogo},
   { name: 'FreshWDL', role: 'Creator', url: 'https://github.com/Yerren/FreshWDL', description: freshWDLDescription, icon: freshWdlLogo },
 ]
-
-// Trims the space above the capital letters, so a heading's box top is its letters' top and circles align with it.
-const capTrim = '[text-box:trim-start_cap_alphabetic]'
 
 const circleClasses =
   'flex h-[clamp(4rem,100vw-15rem,10rem)] w-[clamp(4rem,100vw-15rem,10rem)] shrink-0 items-center justify-center overflow-hidden rounded-full bg-black text-center text-[clamp(0.6rem,(100vw-15rem)*0.11,1.125rem)] text-white max-[300px]:h-40 max-[300px]:w-40 max-[300px]:text-lg lg:h-48 lg:w-48 dark:bg-white dark:text-black'

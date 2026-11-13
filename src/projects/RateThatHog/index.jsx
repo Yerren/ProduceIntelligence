@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
-import { ReactSketchCanvas } from 'react-sketch-canvas'
+import { useRef, useState } from 'react'
+import DrawingCanvas from '../shared/DrawingCanvas.jsx'
+import ScoreGraph from '../shared/ScoreGraph.jsx'
+import { CANVAS_SIZE, postDrawing, sizeSvg, svgCursor, useFixedPageWidth } from '../shared/drawing.js'
 import cursorSvg from './assets/cursor.svg?raw'
 import meterUrl from './assets/Meter.svg'
 import meterAngryUrl from './assets/Meter_Angry.svg'
-import eraserSvg from './assets/eraser.svg?raw'
-import pencilSvg from './assets/pencil.svg?raw'
 import stamp0Url from './assets/Stamp_0.svg'
 import stamp1Url from './assets/Stamp_1.svg'
 import stamp2Url from './assets/Stamp_2.svg'
@@ -13,9 +13,7 @@ import stamp4Url from './assets/Stamp_4.svg'
 import stamp5Url from './assets/Stamp_5.svg'
 import titleUrl from './assets/Title.svg'
 
-const SIZE = 512
-// Toolbar + canvas + meter, plus the page padding. Phones lay the page out this wide and scale it
-// down to fit the screen, rather than clipping the drawing row.
+// Toolbar + canvas + meter, plus the page padding.
 const PAGE_WIDTH = 860
 const HOG_PINK = '#ffa1e0'
 const NUMBER_FONT = '"Delicious Handrawn"'
@@ -32,17 +30,8 @@ function formatScore(score) {
   return score === NOT_A_PIG ? String(NOT_A_PIG) : score.toFixed(1)
 }
 
-async function rateDrawing(dataUrl) {
-  const image = await (await fetch(dataUrl)).blob()
-  const res = await fetch('/api/rate-hog', { method: 'POST', headers: { 'Content-Type': 'image/png' }, body: image })
-  if (!res.ok) throw new Error(`rate-hog failed: ${res.status}`)
-  return await res.json()
-}
-
-// The Illustrator SVGs only have a viewBox, and browsers won't draw an SVG to a canvas or use it
-// as a cursor without an intrinsic size, so give it one.
-function sizeSvg(svg, width, height) {
-  return svg.replace('<svg ', `<svg width="${width}" height="${height}" `)
+function rateDrawing(dataUrl) {
+  return postDrawing('/api/rate-hog', dataUrl)
 }
 
 async function loadSvgImage(url, width, height) {
@@ -54,35 +43,13 @@ async function loadSvgImage(url, width, height) {
   return image
 }
 
-// A CSS cursor from an icon SVG of size viewW x viewH, drawn `width` px wide and rotated `degrees`
-// clockwise, with the hotspot at `hot` (viewBox units).
-function svgCursor(svg, viewW, viewH, width, [hotX, hotY], fallback, degrees = 0) {
-  const scale = width / viewW
-  const w = width
-  const h = viewH * scale
-  // Grow the cursor image to the rotated icon's bounding box and turn the icon about its centre.
-  const rad = (degrees * Math.PI) / 180
-  const boxW = Math.ceil(w * Math.abs(Math.cos(rad)) + h * Math.abs(Math.sin(rad)))
-  const boxH = Math.ceil(w * Math.abs(Math.sin(rad)) + h * Math.abs(Math.cos(rad)))
-  const icon = sizeSvg(svg.replace(/<\?xml[^>]*\?>/, ''), w, h)
-  const cursor = `<svg xmlns="http://www.w3.org/2000/svg" width="${boxW}" height="${boxH}">`
-    + `<g transform="translate(${boxW / 2} ${boxH / 2}) rotate(${degrees}) translate(${-w / 2} ${-h / 2})">${icon}</g></svg>`
-  // Rotate the hotspot the same way.
-  const dx = hotX * scale - w / 2
-  const dy = hotY * scale - h / 2
-  const x = Math.round(boxW / 2 + dx * Math.cos(rad) - dy * Math.sin(rad))
-  const y = Math.round(boxH / 2 + dx * Math.sin(rad) + dy * Math.cos(rad))
-  return `url("data:image/svg+xml,${encodeURIComponent(cursor)}") ${x} ${y}, ${fallback}`
-}
 
-// Hotspots: the snout's centre, the pencil's tip, and the middle of the eraser's rubbing edge.
+// Hotspot: the snout's centre.
 const PAGE_CURSOR = svgCursor(cursorSvg, 69.4, 34.9, 32, [34.7, 17.5], 'auto')
 // Over buttons and inputs, the snout tilts; pressing the mouse tilts it back 20 degrees
 // (flat over a button, the other way anywhere else).
 const HOVER_CURSOR = svgCursor(cursorSvg, 69.4, 34.9, 32, [34.7, 17.5], 'pointer', 20)
 const PRESS_CURSOR = svgCursor(cursorSvg, 69.4, 34.9, 32, [34.7, 17.5], 'auto', -20)
-const PENCIL_CURSOR = svgCursor(pencilSvg, 80.1, 87, 32, [5, 86], 'crosshair')
-const ERASER_CURSOR = svgCursor(eraserSvg, 77.3, 79.6, 32, [18, 74], 'crosshair')
 
 // One stamp per rating, picked by rounding the score up. Stamp_0 is for drawings that aren't a pig at all.
 const STAMP_URLS = [stamp0Url, stamp1Url, stamp2Url, stamp3Url, stamp4Url, stamp5Url]
@@ -128,20 +95,14 @@ function RateThatHog() {
   const [color, setColor] = useState('#000000')
   const [erasing, setErasing] = useState(false)
 
-  // index.html's viewport is shared with the other projects, so swap it only while this page is up.
-  useEffect(() => {
-    const meta = document.querySelector('meta[name="viewport"]')
-    const original = meta.content
-    meta.content = `width=${PAGE_WIDTH}, user-scalable=no`
-    return () => { meta.content = original }
-  }, [])
+  useFixedPageWidth(PAGE_WIDTH)
 
   async function handleStroke() {
     const id = nextId.current++
     strokes.current.push(id)
     setGraph(g => [...g, id])
     try {
-      const dataUrl = await canvasRef.current.exportImage('png', { width: SIZE, height: SIZE })
+      const dataUrl = await canvasRef.current.exportImage('png', { width: CANVAS_SIZE, height: CANVAS_SIZE })
       const res = await rateDrawing(dataUrl)
       // "Not a pig" replies leave out automated.
       setAutomated(a => ({ ...a, [id]: res.automated === true }))
@@ -163,12 +124,12 @@ function RateThatHog() {
   // Downloads the drawing as a PNG with the latest score stamped in the top left.
   async function exportDrawing() {
     const image = new Image()
-    image.src = await canvasRef.current.exportImage('png', { width: SIZE, height: SIZE })
+    image.src = await canvasRef.current.exportImage('png', { width: CANVAS_SIZE, height: CANVAS_SIZE })
     await image.decode()
 
     const canvas = document.createElement('canvas')
-    canvas.width = SIZE
-    canvas.height = SIZE
+    canvas.width = CANVAS_SIZE
+    canvas.height = CANVAS_SIZE
     const ctx = canvas.getContext('2d')
     ctx.drawImage(image, 0, 0)
     if (latest !== undefined) {
@@ -253,22 +214,20 @@ function RateThatHog() {
             {/* The toolbar stretches to the canvas height, so mt-auto pins this to the canvas bottom. */}
             <button className="mt-auto border px-2 bg-black text-white" onClick={exportDrawing}>Save hog</button>
           </div>
-          <div style={{ cursor: erasing ? ERASER_CURSOR : PENCIL_CURSOR }}>
-            <ReactSketchCanvas
-              ref={canvasRef}
-              width={`${SIZE}px`}
-              height={`${SIZE}px`}
-              canvasColor="#ffffff"
-              strokeColor={color}
-              strokeWidth={4}
-              eraserWidth={16}
-              onStroke={handleStroke}
-            />
-          </div>
+          <DrawingCanvas ref={canvasRef} erasing={erasing} strokeColor={color} onStroke={handleStroke} />
           {/* Part of the drawing group so it doesn't wrap with the graph. */}
           <Meter score={latest} automated={latestAutomated} />
         </div>
-        <ScoreGraph points={points} />
+        <ScoreGraph
+          points={points}
+          width={CANVAS_SIZE}
+          height={CANVAS_SIZE}
+          levels={GRAPH_LEVELS}
+          padLeft={24}
+          fontSize={20}
+          fontFamily={NUMBER_FONT}
+          color={HOG_PINK}
+        />
       </div>
     </div>
   )
@@ -289,7 +248,7 @@ function Meter({ score, automated }) {
   const fill = (Math.max(0, score ?? 0) / 5) * (METER.tubeBottom - METER.tubeTop)
 
   return (
-    <div className="relative" style={{ height: SIZE, width: (SIZE * METER.width) / METER.height }}>
+    <div className="relative" style={{ height: CANVAS_SIZE, width: (CANVAS_SIZE * METER.width) / METER.height }}>
       <div
         className="absolute"
         style={{
@@ -313,32 +272,7 @@ function Meter({ score, automated }) {
   )
 }
 
-const GRAPH_HEIGHT = SIZE
-const PAD = { left: 24, right: 8, top: 12, bottom: 12 }
 // The y axis runs from 0 to 5. A NOT_A_PIG score (-1) plunges below the bottom of the graph on purpose.
 const GRAPH_LEVELS = [0, 1, 2, 3, 4, 5]
-
-function ScoreGraph({ points }) {
-  const plotWidth = SIZE - PAD.left - PAD.right
-  const plotHeight = GRAPH_HEIGHT - PAD.top - PAD.bottom
-  // Trailing points still awaiting a score take no room, so the graph only moves once a score arrives.
-  const span = points.findLastIndex(score => score !== undefined)
-  const x = i => PAD.left + (span > 0 ? (i / span) * plotWidth : 0)
-  const y = score => PAD.top + ((5 - score) / 5) * plotHeight
-  // Pending (or failed) points are skipped; the line joins the scores we have.
-  const known = points.flatMap((score, i) => (score === undefined ? [] : [[x(i), y(score)]]))
-
-  return (
-    <svg width={SIZE} height={GRAPH_HEIGHT} overflow="visible" className="text-current">
-      {GRAPH_LEVELS.map(level => (
-        <g key={level}>
-          <line x1={PAD.left} x2={SIZE - PAD.right} y1={y(level)} y2={y(level)} stroke="currentColor" strokeOpacity={0.15} />
-          <text x={PAD.left - 6} y={y(level)} textAnchor="end" dominantBaseline="middle" fontSize={20} fontFamily={NUMBER_FONT} fill="currentColor" fillOpacity={0.6}>{level}</text>
-        </g>
-      ))}
-      <polyline points={known.map(p => p.join(',')).join(' ')} fill="none" stroke={HOG_PINK} strokeWidth={10} strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
-  )
-}
 
 export default RateThatHog

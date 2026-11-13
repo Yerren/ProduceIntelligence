@@ -1,13 +1,15 @@
 import { lazy, Suspense } from 'react'
 import { Route, Routes } from 'react-router'
-import Layout from './components/Layout.jsx'
+import Layout from './site/Layout.jsx'
 
-// Each project is lazy-loaded so its code only downloads when visited.
-const Home = lazy(() => import('./projects/home/HomePage.jsx'))
-const FunZone = lazy(() => import('./projects/FunZone/index.jsx'))
+// Every page is lazy-loaded so its code only downloads when visited.
+// The main site (src/site) shares the Layout's sidebar nav.
+const Home = lazy(() => import('./site/HomePage.jsx'))
+const Slides = lazy(() => import('./site/SlidesPage.jsx'))
+const FunZone = lazy(() => import('./site/FunZonePage.jsx'))
+// The Fun Zone projects (src/projects) are standalone, full-screen pages.
 const RateThatHog = lazy(() => import('./projects/RateThatHog/index.jsx'))
 const HotOrCold = lazy(() => import('./projects/HotOrCold/index.jsx'))
-const Slides = lazy(() => import('./projects/Slides/index.jsx'))
 
 function App() {
   return (

@@ -1,6 +1,6 @@
 import { Link, Route, Routes } from 'react-router'
 
-function FunZoneProject() {
+function FunZonePage() {
   return (
     <Routes>
       <Route index element={<FunZoneHome />} />
@@ -23,4 +23,4 @@ function FunZoneDetails() {
   return <div><h1 className="text-3xl">Okay. So. I lied.</h1><p>There's nothing here yet either.</p><p>Sorry.</p></div>
 }
 
-export default FunZoneProject
+export default FunZonePage

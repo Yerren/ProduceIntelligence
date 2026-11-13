@@ -13,37 +13,27 @@ const HOG_LEVELS = [
   'An actually decently good drawing of a pig.',
 ]
 
-// Score sent back when Jev thinks the drawing inappropriate  
+// Score sent back when Jev thinks the drawing inappropriate
 const NOT_A_PIG_SCORE = -1
 
-async function rateHog(request, env) {
-  if (request.method !== 'POST') return new Response(null, { status: 405 })
+// The drawing a game POSTed as a PNG body, or the error Response to send back instead.
+async function readDrawing(request) {
   if (request.headers.get('Content-Type') !== 'image/png') return new Response(null, { status: 415 })
-
   const image = await request.arrayBuffer()
   if (image.byteLength === 0 || image.byteLength > MAX_IMAGE_BYTES) return new Response(null, { status: 413 })
+  return image
+}
 
+// Asks Jev `questions` about the drawing (referred to as `drawing` in their instructions).
+// Returns its answers, or null if the request failed.
+async function askJev(env, image, questions) {
   const ref = crypto.randomUUID()
   const body = new FormData()
   body.append('request', new Blob([JSON.stringify({
     model: 'jev-latest',
     state: { drawing: ref },
     assets: { [ref]: { type: 'image', part: 'drawing' } },
-    questions: {
-      is_inappropriate: {
-        type: 'noul',
-        instructions: 'Is `drawing` phallic (including typical simple/crude penis sketches), and/or does it include a penis anywhere (even hidden away), and/or does it imply a phallus, and/or is it in any way otherwise inappropriate?',
-      },
-      is_automated_drawing: {
-        type: 'noul',
-        instructions: 'Is `drawing` created using automated software and is not handdrawn (e.g., clearly too straight lines or perfect ovals, or very symmetrical, or tool assisted, etc.)?',
-      },
-      hog: {
-        type: 'score',
-        instructions: 'How good a drawing of a pig is `drawing`?',
-        criteria: HOG_LEVELS,
-      },
-    },
+    questions,
   })], { type: 'application/json' }))
   body.append('drawing', new Blob([image], { type: 'image/png' }), 'drawing.png')
 
@@ -57,10 +47,33 @@ async function rateHog(request, env) {
   })
   if (!res.ok) {
     console.error('Jev request failed', res.status, await res.text())
-    return new Response(null, { status: 502 })
+    return null
   }
+  return (await res.json()).answers
+}
 
-  const { answers } = await res.json()
+async function rateHog(request, env) {
+  if (request.method !== 'POST') return new Response(null, { status: 405 })
+  const image = await readDrawing(request)
+  if (image instanceof Response) return image
+
+  const answers = await askJev(env, image, {
+    is_inappropriate: {
+      type: 'noul',
+      instructions: 'Is `drawing` phallic (including typical simple/crude penis sketches), and/or does it include a penis anywhere (even hidden away), and/or does it imply a phallus, and/or is it in any way otherwise inappropriate?',
+    },
+    is_automated_drawing: {
+      type: 'noul',
+      instructions: 'Is `drawing` created using automated software and is not handdrawn (e.g., clearly too straight lines or perfect ovals, or very symmetrical, or tool assisted, etc.)?',
+    },
+    hog: {
+      type: 'score',
+      instructions: 'How good a drawing of a pig is `drawing`?',
+      criteria: HOG_LEVELS,
+    },
+  })
+  if (!answers) return new Response(null, { status: 502 })
+
   // noul is the probability (0-1) that the answer is yes.
   if (answers.is_inappropriate.noul > 0.50) return Response.json({ score: NOT_A_PIG_SCORE })
   return Response.json({ score: answers.hog.score + 1, automated: answers.is_automated_drawing.noul > 0.50 })
@@ -173,44 +186,22 @@ async function revealWord(request, env) {
 
 async function hotOrCold(request, env) {
   if (request.method !== 'POST') return new Response(null, { status: 405 })
-  if (request.headers.get('Content-Type') !== 'image/png') return new Response(null, { status: 415 })
 
   const word = await decryptWord(request.headers.get('X-Word-Token') ?? '', env)
   if (word === null) return new Response(null, { status: 400 })
 
-  const image = await request.arrayBuffer()
-  if (image.byteLength === 0 || image.byteLength > MAX_IMAGE_BYTES) return new Response(null, { status: 413 })
+  const image = await readDrawing(request)
+  if (image instanceof Response) return image
 
-  const ref = crypto.randomUUID()
-  const body = new FormData()
-  body.append('request', new Blob([JSON.stringify({
-    model: 'jev-latest',
-    state: { drawing: ref },
-    assets: { [ref]: { type: 'image', part: 'drawing' } },
-    questions: {
-      closeness: {
-        type: 'score',
-        instructions: `You are playing reverse pictionary with a player. You know the secret word "${word}" and must help the player figure it out. The player can only communicate via drawings, and you can only communicate back by ranking how close \`drawing\` is to the secret word. Only judge what is drawn; written words or letters do not count.`,
-        criteria: closenessLevels(word),
-      },
+  const answers = await askJev(env, image, {
+    closeness: {
+      type: 'score',
+      instructions: `You are playing reverse pictionary with a player. You know the secret word "${word}" and must help the player figure it out. The player can only communicate via drawings, and you can only communicate back by ranking how close \`drawing\` is to the secret word. Only judge what is drawn; written words or letters do not count.`,
+      criteria: closenessLevels(word),
     },
-  })], { type: 'application/json' }))
-  body.append('drawing', new Blob([image], { type: 'image/png' }), 'drawing.png')
-
-  const res = await fetch('https://api.typesafe.ai/v1/systemone', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.TYPESAFE_API_KEY}`,
-      'TypeSafe-Danger-Zone-Images': 'true',
-    },
-    body,
   })
-  if (!res.ok) {
-    console.error('Jev request failed', res.status, await res.text())
-    return new Response(null, { status: 502 })
-  }
+  if (!answers) return new Response(null, { status: 502 })
 
-  const { answers } = await res.json()
   const score = (answers.closeness.score - MIDDLE_LEVEL) / MIDDLE_LEVEL
   return Response.json({ score, pattern: blankedOut(word, lettersRevealed(word, score)) })
 }

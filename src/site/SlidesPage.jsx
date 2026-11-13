@@ -1,10 +1,10 @@
-import { wipeUnderline } from '../../styles/wipeUnderline'
+import { capTrim, wipeUnderline } from './styles.js'
 
-// Every PDF dropped into ./Presentations is listed automatically. File names are "Title - Subtitle.pdf"
+// Every PDF dropped into ./presentations is listed automatically. File names are "Title - Subtitle.pdf"
 // (split on the first " - "; the subtitle is optional). Thumbnails of each first page are rendered at
 // build time by vite-plugins/pdfThumbnail.js.
-const pdfUrls = import.meta.glob('./Presentations/*.pdf', { query: '?url', import: 'default', eager: true })
-const thumbnails = import.meta.glob('./Presentations/*.pdf', { query: '?thumbnail', import: 'default', eager: true })
+const pdfUrls = import.meta.glob('./presentations/*.pdf', { query: '?url', import: 'default', eager: true })
+const thumbnails = import.meta.glob('./presentations/*.pdf', { query: '?thumbnail', import: 'default', eager: true })
 
 function parseName(file) {
   const name = file.split('/').pop().replace(/\.pdf$/i, '')
@@ -15,9 +15,6 @@ function parseName(file) {
 const PRESENTATIONS = Object.keys(pdfUrls)
   .map((file) => ({ file, url: pdfUrls[file], thumbnail: thumbnails[file], ...parseName(file) }))
   .sort((a, b) => a.title.localeCompare(b.title))
-
-// Trims the space above the capital letters, so the title's top lines up with the thumbnail's top.
-const capTrim = '[text-box:trim-start_cap_alphabetic]'
 
 function Presentation({ title, subtitle, url, thumbnail }) {
   return (
