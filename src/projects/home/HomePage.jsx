@@ -2,17 +2,18 @@ import { useEffect } from 'react'
 import { useLocation } from 'react-router'
 import profileImg from './assets/profile_wide.jpg'
 import docxedoLogo from './assets/docxedo_logo.png'
+import adamLogo from './assets/adam-logo.png'
 import freshWdlLogo from './assets/FreshWDL.png'
 
 const LOREM =
   'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris eget molestie augue, a commodo ipsum. Nam et nunc commodo, rhoncus elit vel, maximus tellus. Pellentesque et velit fringilla odio scelerisque convallis. Sed vel ante ac risus malesuada pulvinar iaculis at eros. Donec ullamcorper augue id placerat suscipit.'
 
-const freshWDLDescription = 'FreshWDL is a lightweight, pure JavaScript alternative to WDL (which ran on Flash). This allows for users to access it from nearly any device and platform.'
+const freshWDLDescription = 'FreshWDL is an open-source, lightweight alternative to Weather Display Live (which ran on Flash) - allowing users to access it from nearly any device and platform. It is being used on 500+ websites around the globe and has been translated into 17+ different languages by the community. FreshWDL is primarily written in pure JavaScript, HTML, and CSS, and makes use of Chart.js, EaselJS, and TweenJS to display the information graphically using fully custom built gauges.'
 
 // Projects alternate image right / image left, in this order.
 const PROJECTS = [
   { name: 'Docxedo', url: 'https://www.docxedo.ai/', description: LOREM, icon: docxedoLogo, contain: true },
-  { name: 'Produce Intelligence', url: 'https://pearlsort.com/a.d.a.m', description: LOREM },
+  { name: 'A.D.A.M.', url: 'https://pearlsort.com/a.d.a.m', description: LOREM, icon:adamLogo},
   { name: 'FreshWDL', url: 'https://github.com/Yerren/FreshWDL', description: freshWDLDescription, icon: freshWdlLogo },
 ]
 
