@@ -156,7 +156,8 @@ function DrawTheThing() {
     // Exactly screen height, so there's nothing to scroll unless the screen is too short to fit the
     // drawing. touch-pan blocks pinch zoom where browsers ignore user-scalable=no (iOS Safari).
     <div className="h-dvh overflow-auto flex flex-col items-center gap-4 p-4 touch-pan-x touch-pan-y">
-      <h1 className="text-3xl">Draw The Thing</h1>
+      {/* As wide as the canvas: the title is too wide to size by height like Rate That Hog's. */}
+      <h1><img src={titleUrl} alt="Draw The Thing" draggable={false} style={{ width: CANVAS_SIZE }} /></h1>
       {/* Fixed heights so nothing shifts the layout as these fill in. */}
       <div className="flex flex-col items-center gap-2">
         <p className="h-6">{category && `Category: ${category}`}</p>
@@ -169,23 +170,23 @@ function DrawTheThing() {
         <div className="flex flex-col gap-2" style={{ width: CANVAS_SIZE }}>
           <div className="flex gap-2">
             <ToolButton label="Pencil" active={!erasing} onClick={() => setEraser(false)}>
-              <img src={pencilUrl} alt="" className="size-7" />
+              <img src={pencilUrl} alt="" draggable={false} className="size-7" />
             </ToolButton>
             <ToolButton label="Eraser" active={erasing} onClick={() => setEraser(true)}>
-              <img src={eraserUrl} alt="" className="size-7" />
+              <img src={eraserUrl} alt="" draggable={false} className="size-7" />
             </ToolButton>
             <ToolButton label="Undo" onClick={undo}>
-              <img src={undoUrl} alt="" className="size-7" />
+              <img src={undoUrl} alt="" draggable={false} className="size-7" />
             </ToolButton>
             {import.meta.env.DEV && <ToolButton label="Fake score" onClick={addFakeScore}>F</ToolButton>}
             <HoldButton label="Clear (hold)" className="ml-auto" holdMs={CLEAR_HOLD_MS} onHold={clear}>
-              <img src={binUrl} alt="" className="size-7" />
+              <img src={binUrl} alt="" draggable={false} className="size-7" />
             </HoldButton>
           </div>
           <DrawingCanvas ref={canvasRef} erasing={erasing} onStroke={handleStroke} />
           <div className="flex gap-2 justify-center">
-            <button className={`border px-2 w-24 ${PRESS}`} onClick={newWord}>New word</button>
-            <button className={`border px-2 w-24 ${PRESS}`} onClick={giveUp}>Give up</button>
+            <PressButton className="border px-2 w-24" onClick={newWord}>New word</PressButton>
+            <PressButton className="border px-2 w-24" onClick={giveUp}>Give up</PressButton>
           </div>
         </div>
         <div className="flex-1 flex flex-col items-center gap-2 min-[1200px]:flex-none">
@@ -246,8 +247,30 @@ function AnswerSlots({ pattern }) {
   )
 }
 
-// Buttons (other than Clear, which fills and shakes instead) shrink a little while pressed.
-const PRESS = 'transition-[scale] duration-75 active:scale-90'
+// Buttons (other than Clear, which fills and shakes instead) shrink a little while pressed, and
+// spring back on release or as soon as the pointer leaves them. This is tracked by hand rather than
+// with :active, which can stay stuck on after dragging off the button.
+function PressButton({ className = '', onPointerDown, children, ...props }) {
+  const [pressed, setPressed] = useState(false)
+  const release = () => setPressed(false)
+
+  return (
+    <button
+      {...props}
+      className={`${className} transition-[scale] duration-[37.5ms] ${pressed ? 'scale-90' : ''}`}
+      onPointerDown={e => {
+        if (e.button === 0) setPressed(true)
+        onPointerDown?.(e)
+      }}
+      onPointerUp={release}
+      onPointerLeave={release}
+      onPointerCancel={release}
+      onDragStart={e => e.preventDefault()}
+    >
+      {children}
+    </button>
+  )
+}
 
 const TOOL_BUTTON = `relative size-10 border flex items-center justify-center overflow-hidden`
 
@@ -261,8 +284,8 @@ function ToolButton({ label, active, onClick, children }) {
   }
 
   return (
-    <button
-      className={`${TOOL_BUTTON} ${PRESS} ${active ? 'bg-black/15' : ''}`}
+    <PressButton
+      className={`${TOOL_BUTTON} ${active ? 'bg-black/15' : ''}`}
       title={label}
       aria-label={label}
       aria-pressed={active}
@@ -272,26 +295,34 @@ function ToolButton({ label, active, onClick, children }) {
       onPointerDown={handlePointerDown}
     >
       {children}
-    </button>
+    </PressButton>
   )
 }
 
-// Fires `onHold` only once it's been held for `holdMs`; a fill sweeps across (and the button shakes)
-// while it's held, and letting go early cancels it.
+// Has to be held for `holdMs` to arm, while a fill sweeps across and the button shakes; it stays
+// filled and shaking once armed, and fires `onHold` when let go. Letting go early cancels it.
 function HoldButton({ label, holdMs, onHold, className = '', children }) {
   const [holding, setHolding] = useState(false)
   const timer = useRef(null)
+  const armed = useRef(false)
 
   function start(e) {
     if (e.button !== 0) return
     e.currentTarget.setPointerCapture(e.pointerId)
     setHolding(true)
-    // Stays filled and shaking after it fires, until it's let go.
-    timer.current = setTimeout(onHold, holdMs)
+    armed.current = false
+    timer.current = setTimeout(() => (armed.current = true), holdMs)
+  }
+
+  function release() {
+    const fire = armed.current
+    cancel()
+    if (fire) onHold()
   }
 
   function cancel() {
     clearTimeout(timer.current)
+    armed.current = false
     setHolding(false)
   }
 
@@ -303,7 +334,7 @@ function HoldButton({ label, holdMs, onHold, className = '', children }) {
       title={label}
       aria-label={label}
       onPointerDown={start}
-      onPointerUp={cancel}
+      onPointerUp={release}
       onPointerCancel={cancel}
       onLostPointerCapture={cancel}
       onContextMenu={e => e.preventDefault()}
@@ -314,27 +345,6 @@ function HoldButton({ label, holdMs, onHold, className = '', children }) {
       />
       <span className="relative">{children}</span>
     </button>
-  )
-}
-
-// Placeholder icons.
-function UndoIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 14 4 9l5-5" />
-      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
-    </svg>
-  )
-}
-
-function TrashIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 6h18" />
-      <path d="M8 6V4h8v2" />
-      <path d="M19 6l-1 14H6L5 6" />
-      <path d="M10 11v6M14 11v6" />
-    </svg>
   )
 }
 
