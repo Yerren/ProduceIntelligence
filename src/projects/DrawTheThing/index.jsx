@@ -18,8 +18,8 @@ function formatScore(score) {
   return `${score > 0 ? '+' : ''}${score.toFixed(2)}`
 }
 
-// The worker picks the word and only hands back an encrypted token for it, plus its category and
-// the word blanked out ("____").
+// The worker picks the word and only hands back an encrypted token for it, plus its category. Even
+// the word's length stays hidden until a score is close enough.
 async function fetchWord() {
   const res = await fetch('/api/draw-the-thing/new-word', { method: 'POST' })
   if (!res.ok) throw new Error(`new-word failed: ${res.status}`)
@@ -59,7 +59,8 @@ function DrawTheThing() {
   // Replies that land after a new word was picked are ignored.
   const word = useRef(null)
   const [category, setCategory] = useState(null)
-  // The blanked-out word with the most letters showing so far.
+  // The blanked-out word with the most letters showing so far, or null until a score has been high
+  // enough for the worker to give away its length.
   const [pattern, setPattern] = useState(null)
   const [gaveUp, setGaveUp] = useState(false)
 
@@ -68,10 +69,9 @@ function DrawTheThing() {
   function pickWord() {
     const next = fetchWord()
     word.current = next
-    next.then(({ category, pattern }) => {
+    next.then(({ category }) => {
       if (word.current !== next) return
       setCategory(category)
-      setPattern(pattern)
     }, err => console.error(err))
   }
 
@@ -88,7 +88,8 @@ function DrawTheThing() {
       const res = await rateDrawing(dataUrl, (await current).token)
       if (word.current !== current) return
       setScores(s => ({ ...s, [id]: res.score }))
-      setPattern(p => (p === null || blanks(res.pattern) < blanks(p) ? res.pattern : p))
+      // Once the length shows it stays, even if later scores drop back below the threshold.
+      if (res.pattern !== null) setPattern(p => (p === null || blanks(res.pattern) < blanks(p) ? res.pattern : p))
     } catch (err) {
       console.error(err)
     }
@@ -161,7 +162,7 @@ function DrawTheThing() {
       {/* Fixed heights so nothing shifts the layout as these fill in. */}
       <div className="flex flex-col items-center gap-2">
         <p className="h-6">{category && `Category: ${category}`}</p>
-        <AnswerSlots pattern={pattern ?? ''} />
+        <AnswerSlots pattern={pattern} loaded={category !== null} />
         <p className="h-6">{won ? 'You got it!' : gaveUp ? 'You gave up.' : ''}</p>
       </div>
       {/* The score + graph sit beside the drawing when the window is wide enough for both, and
@@ -234,15 +235,35 @@ const GRAPH_LEVELS = [-1, -0.5, 0, 0.5, 1]
 
 const isLetter = char => /\p{L}/u.test(char)
 
-// The answer as one slot per letter, empty until revealed, with spaces and hyphens as they are.
-function AnswerSlots({ pattern }) {
+// The letter counts the way a crossword clue gives them: "(5)", or "(3,5)" for two words and
+// "(1-5)" for a hyphenated one.
+function lengthLabel(pattern) {
+  const count = part => [...part].filter(char => char === '_' || isLetter(char)).length
+  return `(${pattern.split(' ').map(word => word.split('-').map(count).join('-')).join(',')})`
+}
+
+// The answer as one slot per letter, empty until revealed, with spaces and hyphens as they are, and
+// its length after it. Until the length is known, it's one fixed-length line and "(?)".
+function AnswerSlots({ pattern, loaded }) {
+  if (!loaded) return <div className="h-9" />
+  if (pattern === null) {
+    return (
+      <div className="flex items-end gap-3 h-9 text-3xl">
+        <span className="w-48 h-full border-b-2" />
+        <span>(?)</span>
+      </div>
+    )
+  }
   return (
-    <div className="flex h-9 text-3xl">
-      {[...pattern].map((char, i) => {
-        if (char === ' ') return <span key={i} className="w-4" />
-        if (!isLetter(char) && char !== '_') return <span key={i} className="w-6 text-center">{char}</span>
-        return <span key={i} className="w-6 mx-0.5 text-center border-b-2">{char === '_' ? '' : char}</span>
-      })}
+    <div className="flex items-end gap-3 h-9 text-3xl">
+      <div className="flex h-full">
+        {[...pattern].map((char, i) => {
+          if (char === ' ') return <span key={i} className="w-4" />
+          if (!isLetter(char) && char !== '_') return <span key={i} className="w-6 text-center">{char}</span>
+          return <span key={i} className="w-6 mx-0.5 text-center border-b-2">{char === '_' ? '' : char}</span>
+        })}
+      </div>
+      <span>{lengthLabel(pattern)}</span>
     </div>
   )
 }

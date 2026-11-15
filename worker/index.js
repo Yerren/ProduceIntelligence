@@ -169,11 +169,18 @@ function lettersRevealed(word, score) {
   return Math.min(letters, 1 + Math.floor(((score - REVEAL_FROM) * (letters - 1)) / (REVEAL_ALL - REVEAL_FROM) + 1e-9))
 }
 
-// The category and the blanked-out word are the hints shown from the start.
+// Below this score even the word's length stays hidden: there's no pattern at all, just null.
+const LENGTH_FROM = 0.1
+
+function patternFor(word, score) {
+  return score < LENGTH_FROM ? null : blankedOut(word, lettersRevealed(word, score))
+}
+
+// The category is the only hint shown from the start.
 async function newWord(request, env) {
   if (request.method !== 'POST') return new Response(null, { status: 405 })
   const { word, category } = WORDS[Math.floor(Math.random() * WORDS.length)]
-  return Response.json({ token: await encryptWord(word, env), category, pattern: blankedOut(word, 0) })
+  return Response.json({ token: await encryptWord(word, env), category })
 }
 
 // Give up: hands back the word behind a token.
@@ -203,7 +210,7 @@ async function drawTheThing(request, env) {
   if (!answers) return new Response(null, { status: 502 })
 
   const score = (answers.closeness.score - MIDDLE_LEVEL) / MIDDLE_LEVEL
-  return Response.json({ score, pattern: blankedOut(word, lettersRevealed(word, score)) })
+  return Response.json({ score, pattern: patternFor(word, score) })
 }
 
 export default {
