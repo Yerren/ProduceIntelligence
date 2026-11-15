@@ -203,7 +203,7 @@ async function drawTheThing(request, env) {
   const answers = await askJev(env, image, {
     closeness: {
       type: 'score',
-      instructions: `You are playing reverse pictionary with a player. You know the secret word "${word}" and must help the player figure it out. The player can only communicate via drawings, and you can only communicate back by ranking how close \`drawing\` is to the secret word. Only judge what is drawn; written words or letters do not count.`,
+      instructions: `You are playing reverse pictionary with a player. You know the secret word "${word}" and must help the player figure it out. The player can only communicate via drawings, and you can only communicate back by ranking how close \`drawing\` is to the secret word. Only judge what is drawn; written words or letters do not count. The user can indicate which part of the drawing they are referring to (e.g., using circles or arrows) - for example, if the secret word is 'leg' they could draw a stick figure and circle its leg, or if the secret word is 'mouth' they could draw a face with an arrow pointing at the mouth.`,
       criteria: closenessLevels(word),
     },
   })
