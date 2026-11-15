@@ -1,4 +1,4 @@
-// Builds Hot or Cold's word list from the Quick, Draw! categories: things people could draw in 20
+// Builds Draw The Thing's word list from the Quick, Draw! categories: things people could draw in 20
 // seconds. Usage: node scripts/word-list/build.mjs  (writes words.csv next to this script for
 // review, and worker/words.json for the worker to pick from)
 //

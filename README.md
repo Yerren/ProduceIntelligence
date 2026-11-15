@@ -14,11 +14,11 @@ src/
     presentations/               every PDF here is listed on /Slides automatically
   projects/                      the Fun Zone projects: standalone, full-screen pages
     shared/                      drawing canvas, cursors, score graph and API helper they share
-    HotOrCold/
+    DrawTheThing/
     RateThatHog/
 worker/                          Cloudflare Worker: /api/* for the Fun Zone projects, static assets otherwise
 vite-plugins/                    build-time PDF thumbnails for /Slides
-scripts/word-list/               builds worker/words.json for Hot or Cold
+scripts/word-list/               builds worker/words.json for Draw The Thing
 ```
 
 ## Scripts

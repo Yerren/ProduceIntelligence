@@ -9,7 +9,7 @@ const Slides = lazy(() => import('./site/SlidesPage.jsx'))
 const FunZone = lazy(() => import('./site/FunZonePage.jsx'))
 // The Fun Zone projects (src/projects) are standalone, full-screen pages.
 const RateThatHog = lazy(() => import('./projects/RateThatHog/index.jsx'))
-const HotOrCold = lazy(() => import('./projects/HotOrCold/index.jsx'))
+const DrawTheThing = lazy(() => import('./projects/DrawTheThing/index.jsx'))
 
 function App() {
   return (
@@ -17,7 +17,7 @@ function App() {
       <Routes>
         {/* Full-screen, outside the shared Layout so there's no nav bar. */}
         <Route path="FunZone/RateThatHog" element={<RateThatHog />} />
-        <Route path="FunZone/HotOrCold" element={<HotOrCold />} />
+        <Route path="FunZone/DrawTheThing" element={<DrawTheThing />} />
         <Route element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="Slides" element={<Slides />} />

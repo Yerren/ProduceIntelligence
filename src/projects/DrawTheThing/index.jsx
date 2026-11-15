@@ -2,9 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import DrawingCanvas from '../shared/DrawingCanvas.jsx'
 import ScoreGraph from '../shared/ScoreGraph.jsx'
 import { CANVAS_SIZE, postDrawing, useFixedPageWidth } from '../shared/drawing.js'
+import eraserUrl from '../shared/assets/eraser.svg'
+import pencilUrl from '../shared/assets/pencil.svg'
 
-// Toolbar + canvas, plus the page padding.
-const PAGE_WIDTH = 656
+// Canvas plus the page padding.
+const PAGE_WIDTH = CANVAS_SIZE + 32
+
+// How long Clear has to be held down.
+const CLEAR_HOLD_MS = 800
 
 function formatScore(score) {
   return `${score > 0 ? '+' : ''}${score.toFixed(2)}`
@@ -13,7 +18,7 @@ function formatScore(score) {
 // The worker picks the word and only hands back an encrypted token for it, plus its category and
 // the word blanked out ("____").
 async function fetchWord() {
-  const res = await fetch('/api/hot-or-cold/new-word', { method: 'POST' })
+  const res = await fetch('/api/draw-the-thing/new-word', { method: 'POST' })
   if (!res.ok) throw new Error(`new-word failed: ${res.status}`)
   return await res.json()
 }
@@ -25,28 +30,28 @@ function blanks(pattern) {
 }
 
 async function revealWord(wordToken) {
-  const res = await fetch('/api/hot-or-cold/reveal', { method: 'POST', headers: { 'X-Word-Token': wordToken } })
+  const res = await fetch('/api/draw-the-thing/reveal', { method: 'POST', headers: { 'X-Word-Token': wordToken } })
   if (!res.ok) throw new Error(`reveal failed: ${res.status}`)
   return (await res.json()).word
 }
 
 function rateDrawing(dataUrl, wordToken) {
-  return postDrawing('/api/hot-or-cold', dataUrl, { 'X-Word-Token': wordToken })
+  return postDrawing('/api/draw-the-thing', dataUrl, { 'X-Word-Token': wordToken })
 }
 
 
-function HotOrCold() {
+function DrawTheThing() {
   const canvasRef = useRef(null)
   const graphArea = useRef(null)
   const graphHeight = useHeight(graphArea)
   const nextId = useRef(0)
-  // Strokes currently on the canvas (mirrors the canvas undo stack).
-  const strokeCount = useRef(0)
+  // The submission id for each stroke currently on the canvas (mirrors the canvas undo stack), so
+  // undoing a stroke can reuse the score from before it instead of resubmitting.
+  const strokes = useRef([])
   // Every graph point is a submission id; scores arrive for them out of order.
   const [graph, setGraph] = useState([])
   const [scores, setScores] = useState({})
   const [erasing, setErasing] = useState(false)
-  const [autoSubmit, setAutoSubmit] = useState(true)
   // Promise of the current word's { token, category, pattern }, so strokes made while it loads wait for it.
   // Replies that land after a new word was picked are ignored.
   const word = useRef(null)
@@ -69,9 +74,11 @@ function HotOrCold() {
 
   useEffect(pickWord, [])
 
-  async function submit() {
+  // Every stroke is submitted as soon as it's drawn.
+  async function handleStroke() {
     const id = nextId.current++
     const current = word.current
+    strokes.current.push(id)
     setGraph(g => [...g, id])
     try {
       const dataUrl = await canvasRef.current.exportImage('png', { width: CANVAS_SIZE, height: CANVAS_SIZE })
@@ -84,11 +91,6 @@ function HotOrCold() {
     }
   }
 
-  function handleStroke() {
-    strokeCount.current++
-    if (autoSubmit) submit()
-  }
-
   // Dev only: adds a graph point with a fake Jev score after a random delay, so replies can land out of order.
   function addFakeScore() {
     const id = nextId.current++
@@ -97,18 +99,20 @@ function HotOrCold() {
     setTimeout(() => setScores(s => ({ ...s, [id]: score })), 200 + Math.random() * 1000)
   }
 
+  // Repeats the score from before the last stroke on the graph (or its pending reply) rather than
+  // resubmitting the drawing.
   function undo() {
-    if (strokeCount.current === 0) return
+    if (strokes.current.length === 0) return
     canvasRef.current.undo()
-    strokeCount.current--
-    if (autoSubmit && strokeCount.current > 0) submit()
+    strokes.current.pop()
+    const previous = strokes.current.at(-1)
+    if (previous !== undefined) setGraph(g => [...g, previous])
   }
 
+  // Wipes the drawing but keeps the graph.
   function clear() {
     canvasRef.current.resetCanvas()
-    strokeCount.current = 0
-    setGraph([])
-    setScores({})
+    strokes.current = []
   }
 
   function newWord() {
@@ -117,6 +121,8 @@ function HotOrCold() {
     setPattern(null)
     setGaveUp(false)
     clear()
+    setGraph([])
+    setScores({})
   }
 
   // Fills in the whole word.
@@ -147,7 +153,7 @@ function HotOrCold() {
     // Exactly screen height, so there's nothing to scroll unless the screen is too short to fit the
     // drawing. touch-pan blocks pinch zoom where browsers ignore user-scalable=no (iOS Safari).
     <div className="h-dvh overflow-auto flex flex-col items-center gap-4 p-4 touch-pan-x touch-pan-y">
-      <h1 className="text-3xl">Hot or Cold</h1>
+      <h1 className="text-3xl">Draw The Thing</h1>
       {/* Fixed heights so nothing shifts the layout as these fill in. */}
       <div className="flex flex-col items-center gap-2">
         <p className="h-6">{category && `Category: ${category}`}</p>
@@ -157,22 +163,27 @@ function HotOrCold() {
       {/* The score + graph sit beside the drawing when the window is wide enough for both, and
           otherwise below it, squashed into whatever height is left. */}
       <div className="flex-1 flex flex-col items-center gap-6 min-[1200px]:flex-row min-[1200px]:justify-center">
-        <div className="flex gap-4">
-          <div className="flex flex-col gap-2 w-24">
-            <button className={`border px-2 ${!erasing ? 'font-bold' : ''}`} onClick={() => setEraser(false)}>Pen</button>
-            <button className={`border px-2 ${erasing ? 'font-bold' : ''}`} onClick={() => setEraser(true)}>Eraser</button>
-            <button className="border px-2" onClick={undo}>Undo</button>
-            <button className="border px-2" onClick={clear}>Clear</button>
-            <button className="border px-2" onClick={newWord}>New word</button>
-            <button className="border px-2" onClick={giveUp}>Give up</button>
-            <label className="flex gap-1 items-center">
-              <input type="checkbox" checked={autoSubmit} onChange={e => setAutoSubmit(e.target.checked)} />
-              Submit every stroke
-            </label>
-            {!autoSubmit && <button className="border px-2 bg-black text-white" onClick={submit}>Submit</button>}
-            {import.meta.env.DEV && <button className="border px-2" onClick={addFakeScore}>Fake</button>}
+        <div className="flex flex-col gap-2" style={{ width: CANVAS_SIZE }}>
+          <div className="flex gap-2">
+            <ToolButton label="Pencil" active={!erasing} onClick={() => setEraser(false)}>
+              <img src={pencilUrl} alt="" className="size-7" />
+            </ToolButton>
+            <ToolButton label="Eraser" active={erasing} onClick={() => setEraser(true)}>
+              <img src={eraserUrl} alt="" className="size-7" />
+            </ToolButton>
+            <ToolButton label="Undo" onClick={undo}>
+              <UndoIcon />
+            </ToolButton>
+            {import.meta.env.DEV && <ToolButton label="Fake score" onClick={addFakeScore}>F</ToolButton>}
+            <HoldButton label="Clear (hold)" className="ml-auto" holdMs={CLEAR_HOLD_MS} onHold={clear}>
+              <TrashIcon />
+            </HoldButton>
           </div>
           <DrawingCanvas ref={canvasRef} erasing={erasing} onStroke={handleStroke} />
+          <div className="flex gap-2 justify-center">
+            <button className={`border px-2 w-24 ${PRESS}`} onClick={newWord}>New word</button>
+            <button className={`border px-2 w-24 ${PRESS}`} onClick={giveUp}>Give up</button>
+          </div>
         </div>
         <div className="flex-1 flex flex-col items-center gap-2 min-[1200px]:flex-none">
           {/* Fixed height so the first score doesn't shift the layout. */}
@@ -232,4 +243,96 @@ function AnswerSlots({ pattern }) {
   )
 }
 
-export default HotOrCold
+// Buttons (other than Clear, which fills and shakes instead) shrink a little while pressed.
+const PRESS = 'transition-[scale] duration-75 active:scale-90'
+
+const TOOL_BUTTON = `relative size-10 border flex items-center justify-center overflow-hidden`
+
+// A toggle (one with `active`) switches on as soon as it's pressed down rather than on release; a
+// keyboard press switches it on with the click.
+function ToolButton({ label, active, onClick, children }) {
+  const toggle = active !== undefined
+
+  function handlePointerDown(e) {
+    if (toggle && e.button === 0 && !active) onClick()
+  }
+
+  return (
+    <button
+      className={`${TOOL_BUTTON} ${PRESS} ${active ? 'bg-black/15' : ''}`}
+      title={label}
+      aria-label={label}
+      aria-pressed={active}
+      onClick={() => {
+        if (!active) onClick()
+      }}
+      onPointerDown={handlePointerDown}
+    >
+      {children}
+    </button>
+  )
+}
+
+// Fires `onHold` only once it's been held for `holdMs`; a fill sweeps across (and the button shakes)
+// while it's held, and letting go early cancels it.
+function HoldButton({ label, holdMs, onHold, className = '', children }) {
+  const [holding, setHolding] = useState(false)
+  const timer = useRef(null)
+
+  function start(e) {
+    if (e.button !== 0) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    setHolding(true)
+    // Stays filled and shaking after it fires, until it's let go.
+    timer.current = setTimeout(onHold, holdMs)
+  }
+
+  function cancel() {
+    clearTimeout(timer.current)
+    setHolding(false)
+  }
+
+  useEffect(() => () => clearTimeout(timer.current), [])
+
+  return (
+    <button
+      className={`${TOOL_BUTTON} select-none touch-none ${holding ? 'animate-shake' : ''} ${className}`}
+      title={label}
+      aria-label={label}
+      onPointerDown={start}
+      onPointerUp={cancel}
+      onPointerCancel={cancel}
+      onLostPointerCapture={cancel}
+      onContextMenu={e => e.preventDefault()}
+    >
+      <span
+        className="absolute inset-y-0 left-0 bg-red-500/40"
+        style={{ width: holding ? '100%' : '0%', transition: holding ? `width ${holdMs}ms linear` : 'none' }}
+      />
+      <span className="relative">{children}</span>
+    </button>
+  )
+}
+
+// Placeholder icons.
+function UndoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+    </svg>
+  )
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  )
+}
+
+export default DrawTheThing
