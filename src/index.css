@@ -4,13 +4,6 @@
 
 @theme {
   --default-font-family: "Quicksand",var(--font-sans) ;
-
-  --animate-shake: shake 0.15s linear infinite;
-  @keyframes shake {
-    0%, 100% { transform: translateX(0) rotate(0); }
-    25% { transform: translateX(-0.75px) rotate(-2deg); }
-    75% { transform: translateX(0.75px) rotate(2deg); }
-  }
 }
 
 @layer base {

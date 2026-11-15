@@ -11,8 +11,14 @@ import titleUrl from './assets/DTT_Title.svg'
 // Canvas plus the page padding.
 const PAGE_WIDTH = CANVAS_SIZE + 32
 
-// How long Clear has to be held down.
-const CLEAR_HOLD_MS = 800
+// The handwritten font Rate That Hog uses, loaded in index.css.
+const FONT = '"Delicious Handrawn"'
+
+// Height over width of DTT_Title.svg's viewBox.
+const TITLE_RATIO = 174.9 / 884.2
+// Roughly the height of the page besides the title in the wide layout (padding, gaps, word lines,
+// toolbar, canvas and buttons), so the title only grows into spare height.
+const BELOW_TITLE = 840
 
 function formatScore(score) {
   return `${score > 0 ? '+' : ''}${score.toFixed(2)}`
@@ -22,9 +28,16 @@ function formatScore(score) {
 // the word's length stays hidden until a score is close enough.
 async function fetchWord() {
   const res = await fetch('/api/draw-the-thing/new-word', { method: 'POST' })
-  if (!res.ok) throw new Error(`new-word failed: ${res.status}`)
+  if (!res.ok) {
+    if (noDevWorker(res)) return { token: DEV_WORD.token, category: DEV_WORD.category }
+    throw new Error(`new-word failed: ${res.status}`)
+  }
   return await res.json()
 }
+
+// Placeholder word for the local dev server, which has no worker behind /api and 404s.
+const DEV_WORD = { token: 'dev-placeholder', category: 'household object', word: 'toothbrush' }
+const noDevWorker = res => import.meta.env.DEV && res.status === 404
 
 // Each score comes back with the word blanked out to match it; higher scores show more letters, and
 // the player wins when there are no blanks left.
@@ -34,7 +47,10 @@ function blanks(pattern) {
 
 async function revealWord(wordToken) {
   const res = await fetch('/api/draw-the-thing/reveal', { method: 'POST', headers: { 'X-Word-Token': wordToken } })
-  if (!res.ok) throw new Error(`reveal failed: ${res.status}`)
+  if (!res.ok) {
+    if (noDevWorker(res) && wordToken === DEV_WORD.token) return DEV_WORD.word
+    throw new Error(`reveal failed: ${res.status}`)
+  }
   return (await res.json()).word
 }
 
@@ -63,6 +79,13 @@ function DrawTheThing() {
   // enough for the worker to give away its length.
   const [pattern, setPattern] = useState(null)
   const [gaveUp, setGaveUp] = useState(false)
+  const [confirmingClear, setConfirmingClear] = useState(false)
+  const screen = useRef(null)
+  const content = useRef(null)
+  // Phones lay the page out at a fixed width and scroll if they must (useFixedPageWidth); with a
+  // mouse, the page shrinks to fit the window instead. On a phone the graph can shrink further too.
+  const desktop = useMediaQuery('(hover: hover) and (pointer: fine)')
+  const fit = useFitHeight(screen, content, desktop)
 
   useFixedPageWidth(PAGE_WIDTH)
 
@@ -156,67 +179,142 @@ function DrawTheThing() {
   return (
     // Exactly screen height, so there's nothing to scroll unless the screen is too short to fit the
     // drawing. touch-pan blocks pinch zoom where browsers ignore user-scalable=no (iOS Safari).
-    <div className="h-dvh overflow-auto flex flex-col items-center gap-4 p-4 touch-pan-x touch-pan-y">
-      {/* As wide as the canvas: the title is too wide to size by height like Rate That Hog's. */}
-      <h1><img src={titleUrl} alt="Draw The Thing" draggable={false} style={{ width: CANVAS_SIZE }} /></h1>
-      {/* Fixed heights so nothing shifts the layout as these fill in. */}
-      <div className="flex flex-col items-center gap-2">
-        <p className="h-6">{category && `Category: ${category}`}</p>
-        <AnswerSlots pattern={pattern} loaded={category !== null} />
-        <p className="h-6">{won ? 'You got it!' : gaveUp ? 'You gave up.' : ''}</p>
-      </div>
-      {/* The score + graph sit beside the drawing when the window is wide enough for both, and
-          otherwise below it, squashed into whatever height is left. */}
-      <div className="flex-1 flex flex-col items-center gap-6 min-[1200px]:flex-row min-[1200px]:justify-center">
-        <div className="flex flex-col gap-2" style={{ width: CANVAS_SIZE }}>
-          <div className="flex gap-2">
-            <ToolButton label="Pencil" active={!erasing} onClick={() => setEraser(false)}>
-              <img src={pencilUrl} alt="" draggable={false} className="size-7" />
-            </ToolButton>
-            <ToolButton label="Eraser" active={erasing} onClick={() => setEraser(true)}>
-              <img src={eraserUrl} alt="" draggable={false} className="size-7" />
-            </ToolButton>
-            <ToolButton label="Undo" onClick={undo}>
-              <img src={undoUrl} alt="" draggable={false} className="size-7" />
-            </ToolButton>
-            {import.meta.env.DEV && <ToolButton label="Fake score" onClick={addFakeScore}>F</ToolButton>}
-            <HoldButton label="Clear (hold)" className="ml-auto" holdMs={CLEAR_HOLD_MS} onHold={clear}>
-              <img src={binUrl} alt="" draggable={false} className="size-7" />
-            </HoldButton>
-          </div>
-          <DrawingCanvas ref={canvasRef} erasing={erasing} onStroke={handleStroke} />
-          <div className="flex gap-2 justify-center">
-            <PressButton className="border px-2 w-24" onClick={newWord}>New word</PressButton>
-            <PressButton className="border px-2 w-24" onClick={giveUp}>Give up</PressButton>
-          </div>
-        </div>
-        <div className="flex-1 flex flex-col items-center gap-2 min-[1200px]:flex-none">
-          {/* Fixed height so the first score doesn't shift the layout. */}
-          <div className="text-3xl h-9">{latest === undefined ? '' : formatScore(latest)}</div>
-          {/* The graph is drawn to this area's height, and positioned absolutely so it can't
-              stretch the area it's measured from. */}
-          <div
-            ref={graphArea}
-            className="relative flex-1 min-h-24 min-[1200px]:flex-none min-[1200px]:h-(--size)"
-            style={{ width: CANVAS_SIZE, maxHeight: CANVAS_SIZE, '--size': `${CANVAS_SIZE}px` }}
+    <div ref={screen} className="h-dvh overflow-auto touch-pan-x touch-pan-y" style={{ fontFamily: FONT }}>
+      {/* At least screen height, so the graph can grow into what's left below the drawing. On a
+          desktop screen too short for all of it, the whole page is scaled down to fit (the canvas
+          maps the pointer through the transform); the negative margin takes back the space the
+          unscaled layout still takes up, so there's nothing left to scroll. */}
+      <div
+        ref={content}
+        className="min-h-full flex flex-col items-center gap-4 p-4 origin-top"
+        style={fit.scale < 1 ? { transform: `scale(${fit.scale})`, marginBottom: -fit.height * (1 - fit.scale) } : undefined}
+      >
+        {/* As wide as the canvas, or when the graph sits beside it, growing toward the width of both
+            for as long as the window is tall enough to fit everything else below it. */}
+        <h1>
+          <img
+            src={titleUrl}
+            alt="Draw The Thing"
+            draggable={false}
+            className="w-(--canvas) min-[1200px]:w-(--wide) dark:invert"
+            style={{
+              '--canvas': `${CANVAS_SIZE}px`,
+              // Grows into whatever height is spare, between the canvas width and the width of both.
+              '--wide': `clamp(${CANVAS_SIZE}px, (100dvh - ${BELOW_TITLE}px) / ${TITLE_RATIO}, ${2 * CANVAS_SIZE + 24}px)`,
+            }}
+          />
+        </h1>
+        {/* Fixed heights so nothing shifts the layout as these fill in. */}
+        <div className="flex flex-col items-center gap-2">
+          {/* Long categories wrap onto a second line rather than overflow the page. */}
+          <p
+            className="min-h-8 text-[32px] leading-none text-center text-balance max-w-(--canvas) min-[1200px]:max-w-(--both)"
+            style={{ '--canvas': `${CANVAS_SIZE}px`, '--both': `${2 * CANVAS_SIZE + 24}px` }}
           >
-            {graphHeight > 0 && (
-              <ScoreGraph
-                points={points}
-                width={CANVAS_SIZE}
-                height={graphHeight}
-                levels={GRAPH_LEVELS}
-                padLeft={40}
-                fontSize={16}
-                color="#000000"
-                className="absolute inset-0"
-              />
-            )}
+            {category && `Category: ${category}`}
+          </p>
+          <AnswerSlots pattern={pattern} loaded={category !== null} />
+          <p className="h-6 text-2xl leading-none">{won ? 'You got it!' : gaveUp ? 'You gave up.' : ''}</p>
+        </div>
+        {/* The score + graph sit beside the drawing when the window is wide enough for both, and
+            otherwise below it, squashed into whatever height is left. */}
+        <div className="flex-1 flex flex-col items-center gap-6 min-[1200px]:flex-row min-[1200px]:justify-center">
+          <div className="flex flex-col gap-2" style={{ width: CANVAS_SIZE }}>
+            <div className="flex gap-2">
+              <ToolButton label="Pencil" active={!erasing} onClick={() => setEraser(false)}>
+                <img src={pencilUrl} alt="" draggable={false} className="size-14 dark:invert" />
+              </ToolButton>
+              <ToolButton label="Eraser" active={erasing} onClick={() => setEraser(true)}>
+                <img src={eraserUrl} alt="" draggable={false} className="size-14 dark:invert" />
+              </ToolButton>
+              <ToolButton label="Undo" onClick={undo}>
+                <img src={undoUrl} alt="" draggable={false} className="size-14 dark:invert" />
+              </ToolButton>
+              {import.meta.env.DEV && (
+                <PressButton className="border px-2 self-center text-2xl" title="Fake score" onClick={addFakeScore}>F</PressButton>
+              )}
+              <PressButton className={`${TOOL_BUTTON} ml-auto`} title="Clear" aria-label="Clear" onClick={() => setConfirmingClear(true)}>
+                <img src={binUrl} alt="" draggable={false} className="size-14 dark:invert" />
+              </PressButton>
+            </div>
+            <DrawingCanvas ref={canvasRef} erasing={erasing} onStroke={handleStroke} />
+            <div className="flex gap-2 justify-center">
+              <PressButton className="border px-2 w-28 text-2xl" onClick={newWord}>New word</PressButton>
+              <PressButton className="border px-2 w-28 text-2xl" onClick={giveUp}>Give up</PressButton>
+            </div>
+          </div>
+          <div className="flex-1 flex flex-col items-center gap-2 min-[1200px]:flex-none">
+            {/* Fixed height so the first score doesn't shift the layout. */}
+            <div className="text-3xl h-9">{latest === undefined ? '' : formatScore(latest)}</div>
+            {/* The graph is drawn to this area's height, and positioned absolutely so it can't
+                stretch the area it's measured from. */}
+            <div
+              ref={graphArea}
+              className={`relative flex-1 ${desktop ? 'min-h-64' : 'min-h-24'} min-[1200px]:flex-none min-[1200px]:h-(--size)`}
+              style={{ width: CANVAS_SIZE, maxHeight: CANVAS_SIZE, '--size': `${CANVAS_SIZE}px` }}
+            >
+              {graphHeight > 0 && (
+                <ScoreGraph
+                  points={points}
+                  width={CANVAS_SIZE}
+                  height={graphHeight}
+                  levels={GRAPH_LEVELS}
+                  padLeft={40}
+                  fontSize={20}
+                  fontFamily={FONT}
+                  color="currentColor"
+                  sketchy
+                  className="absolute inset-0"
+                />
+              )}
+            </div>
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmingClear}
+        message="Clear the drawing?"
+        confirmLabel="Clear"
+        onConfirm={() => {
+          setConfirmingClear(false)
+          clear()
+        }}
+        onCancel={() => setConfirmingClear(false)}
+      />
     </div>
   )
+}
+
+// Whether the media `query` matches, kept up to date.
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
+  useEffect(() => {
+    const list = window.matchMedia(query)
+    const update = () => setMatches(list.matches)
+    update()
+    list.addEventListener('change', update)
+    return () => list.removeEventListener('change', update)
+  }, [query])
+  return matches
+}
+
+// How far to scale `content` down for it to fit in the height of `screen` (never up), along with
+// its unscaled height; always 1 unless `enabled`. Scaling doesn't change the layout size that's
+// measured, so it can't feed back into itself.
+function useFitHeight(screen, content, enabled) {
+  const [fit, setFit] = useState({ scale: 1, height: 0 })
+  useEffect(() => {
+    function update() {
+      const height = content.current.offsetHeight
+      const scale = enabled ? Math.min(1, screen.current.clientHeight / height) : 1
+      setFit(f => (f.scale === scale && f.height === height ? f : { scale, height }))
+    }
+    const observer = new ResizeObserver(update)
+    observer.observe(screen.current)
+    observer.observe(content.current)
+    return () => observer.disconnect()
+  }, [screen, content, enabled])
+  return fit
 }
 
 // The height of the element in `ref`, kept up to date as it resizes.
@@ -245,22 +343,22 @@ function lengthLabel(pattern) {
 // The answer as one slot per letter, empty until revealed, with spaces and hyphens as they are, and
 // its length after it. Until the length is known, it's one fixed-length line and "(?)".
 function AnswerSlots({ pattern, loaded }) {
-  if (!loaded) return <div className="h-9" />
+  if (!loaded) return <div className="h-14" />
   if (pattern === null) {
     return (
-      <div className="flex items-end gap-3 h-9 text-3xl">
-        <span className="w-48 h-full border-b-2" />
+      <div className="flex items-end gap-3 h-14 text-[45px] leading-none">
+        <span className="w-72 h-full border-b-2" />
         <span>(?)</span>
       </div>
     )
   }
   return (
-    <div className="flex items-end gap-3 h-9 text-3xl">
-      <div className="flex h-full">
+    <div className="flex items-end gap-3 h-14 text-[45px] leading-none">
+      <div className="flex h-full items-end">
         {[...pattern].map((char, i) => {
-          if (char === ' ') return <span key={i} className="w-4" />
-          if (!isLetter(char) && char !== '_') return <span key={i} className="w-6 text-center">{char}</span>
-          return <span key={i} className="w-6 mx-0.5 text-center border-b-2">{char === '_' ? '' : char}</span>
+          if (char === ' ') return <span key={i} className="w-6" />
+          if (!isLetter(char) && char !== '_') return <span key={i} className="w-8 text-center">{char}</span>
+          return <span key={i} className="w-8 mx-0.5 text-center border-b-2">{char === '_' ? '' : char}</span>
         })}
       </div>
       <span>{lengthLabel(pattern)}</span>
@@ -268,7 +366,7 @@ function AnswerSlots({ pattern, loaded }) {
   )
 }
 
-// Buttons (other than Clear, which fills and shakes instead) shrink a little while pressed, and
+// Buttons shrink a little while pressed, and
 // spring back on release or as soon as the pointer leaves them. This is tracked by hand rather than
 // with :active, which can stay stuck on after dragging off the button.
 function PressButton({ className = '', onPointerDown, children, ...props }) {
@@ -293,7 +391,7 @@ function PressButton({ className = '', onPointerDown, children, ...props }) {
   )
 }
 
-const TOOL_BUTTON = `relative size-10 border flex items-center justify-center overflow-hidden`
+const TOOL_BUTTON = `relative size-20 border flex items-center justify-center overflow-hidden`
 
 // A toggle (one with `active`) switches on as soon as it's pressed down rather than on release; a
 // keyboard press switches it on with the click.
@@ -306,7 +404,7 @@ function ToolButton({ label, active, onClick, children }) {
 
   return (
     <PressButton
-      className={`${TOOL_BUTTON} ${active ? 'bg-black/15' : ''}`}
+      className={`${TOOL_BUTTON} ${active ? 'bg-black/15 dark:bg-white/25' : ''}`}
       title={label}
       aria-label={label}
       aria-pressed={active}
@@ -320,52 +418,37 @@ function ToolButton({ label, active, onClick, children }) {
   )
 }
 
-// Has to be held for `holdMs` to arm, while a fill sweeps across and the button shakes; it stays
-// filled and shaking once armed, and fires `onHold` when let go. Letting go early cancels it.
-function HoldButton({ label, holdMs, onHold, className = '', children }) {
-  const [holding, setHolding] = useState(false)
-  const timer = useRef(null)
-  const armed = useRef(false)
+// An "are you sure" popup. A native modal <dialog> handles focus, Escape and blocking the page for
+// both mouse and touch; tapping the backdrop cancels too.
+function ConfirmDialog({ open, message, confirmLabel, onConfirm, onCancel }) {
+  const ref = useRef(null)
 
-  function start(e) {
-    if (e.button !== 0) return
-    e.currentTarget.setPointerCapture(e.pointerId)
-    setHolding(true)
-    armed.current = false
-    timer.current = setTimeout(() => (armed.current = true), holdMs)
-  }
-
-  function release() {
-    const fire = armed.current
-    cancel()
-    if (fire) onHold()
-  }
-
-  function cancel() {
-    clearTimeout(timer.current)
-    armed.current = false
-    setHolding(false)
-  }
-
-  useEffect(() => () => clearTimeout(timer.current), [])
+  useEffect(() => {
+    const dialog = ref.current
+    if (open && !dialog.open) dialog.showModal()
+    if (!open && dialog.open) dialog.close()
+  }, [open])
 
   return (
-    <button
-      className={`${TOOL_BUTTON} select-none touch-none ${holding ? 'animate-shake' : ''} ${className}`}
-      title={label}
-      aria-label={label}
-      onPointerDown={start}
-      onPointerUp={release}
-      onPointerCancel={cancel}
-      onLostPointerCapture={cancel}
-      onContextMenu={e => e.preventDefault()}
+    <dialog
+      ref={ref}
+      className="m-auto max-w-[calc(100vw-2rem)] border-2 border-black bg-white text-black p-6 backdrop:bg-black/40 dark:border-white dark:bg-black dark:text-white dark:backdrop:bg-white/20"
+      style={{ fontFamily: FONT }}
+      onCancel={e => {
+        e.preventDefault()
+        onCancel()
+      }}
+      // A click that lands on the <dialog> itself rather than its contents is on the backdrop.
+      onClick={e => {
+        if (e.target === e.currentTarget) onCancel()
+      }}
     >
-      <span
-        className="absolute inset-y-0 left-0 bg-red-500/40"
-        style={{ width: holding ? '100%' : '0%', transition: holding ? `width ${holdMs}ms linear` : 'none' }}
-      />
-      <span className="relative">{children}</span>
-    </button>
+      <p className="text-4xl text-center mb-6">{message}</p>
+      <div className="flex gap-4 justify-center">
+        <PressButton className="border-2 px-4 py-1 text-3xl min-w-28" autoFocus onClick={onCancel}>Cancel</PressButton>
+        <PressButton className="border-2 border-red-600 bg-red-500/20 px-4 py-1 text-3xl min-w-28" onClick={onConfirm}>{confirmLabel}</PressButton>
+      </div>
+    </dialog>
   )
 }
 
