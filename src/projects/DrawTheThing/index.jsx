@@ -4,6 +4,9 @@ import ScoreGraph from '../shared/ScoreGraph.jsx'
 import { CANVAS_SIZE, postDrawing, useFixedPageWidth } from '../shared/drawing.js'
 import eraserUrl from '../shared/assets/eraser.svg'
 import pencilUrl from '../shared/assets/pencil.svg'
+import undoUrl from './assets/undo.svg'
+import binUrl from './assets/bin.svg'
+import titleUrl from './assets/DTT_Title.svg'
 
 // Canvas plus the page padding.
 const PAGE_WIDTH = CANVAS_SIZE + 32
@@ -172,11 +175,11 @@ function DrawTheThing() {
               <img src={eraserUrl} alt="" className="size-7" />
             </ToolButton>
             <ToolButton label="Undo" onClick={undo}>
-              <UndoIcon />
+              <img src={undoUrl} alt="" className="size-7" />
             </ToolButton>
             {import.meta.env.DEV && <ToolButton label="Fake score" onClick={addFakeScore}>F</ToolButton>}
             <HoldButton label="Clear (hold)" className="ml-auto" holdMs={CLEAR_HOLD_MS} onHold={clear}>
-              <TrashIcon />
+              <img src={binUrl} alt="" className="size-7" />
             </HoldButton>
           </div>
           <DrawingCanvas ref={canvasRef} erasing={erasing} onStroke={handleStroke} />
