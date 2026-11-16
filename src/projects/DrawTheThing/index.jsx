@@ -7,6 +7,8 @@ import pencilUrl from '../shared/assets/pencil.svg'
 import undoUrl from './assets/undo.svg'
 import binUrl from './assets/bin.svg'
 import titleUrl from './assets/DTT_Title.svg'
+import gaugeUrl from './assets/guage.svg'
+import arrowUrl from './assets/arrow.svg'
 
 // Canvas plus the page padding.
 const PAGE_WIDTH = CANVAS_SIZE + 32
@@ -16,8 +18,8 @@ const FONT = '"Delicious Handrawn"'
 
 // Height over width of DTT_Title.svg's viewBox.
 const TITLE_RATIO = 174.9 / 884.2
-// Roughly the height of the page besides the title in the wide layout (padding, gaps, word lines,
-// toolbar, canvas and buttons), so the title only grows into spare height.
+// Roughly the height of the page besides the title and gauge in the wide layout (padding, gaps,
+// word lines, toolbar, canvas and buttons), so the title only grows into spare height.
 const BELOW_TITLE = 840
 
 function formatScore(score) {
@@ -200,7 +202,7 @@ function DrawTheThing() {
             style={{
               '--canvas': `${CANVAS_SIZE}px`,
               // Grows into whatever height is spare, between the canvas width and the width of both.
-              '--wide': `clamp(${CANVAS_SIZE}px, (100dvh - ${BELOW_TITLE}px) / ${TITLE_RATIO}, ${2 * CANVAS_SIZE + 24}px)`,
+              '--wide': `clamp(${CANVAS_SIZE}px, (100dvh - ${BELOW_TITLE + GAUGE_HEIGHT + 8}px) / ${TITLE_RATIO}, ${2 * CANVAS_SIZE + 24}px)`,
             }}
           />
         </h1>
@@ -216,36 +218,37 @@ function DrawTheThing() {
           <AnswerSlots pattern={pattern} loaded={category !== null} />
           <p className="h-6 text-2xl leading-none">{won ? 'You got it!' : gaveUp ? 'You gave up.' : ''}</p>
         </div>
-        {/* The score + graph sit beside the drawing when the window is wide enough for both, and
-            otherwise below it, squashed into whatever height is left. */}
-        <div className="flex-1 flex flex-col items-center gap-6 min-[1200px]:flex-row min-[1200px]:justify-center">
-          <div className="flex flex-col gap-2" style={{ width: CANVAS_SIZE }}>
-            <div className="flex gap-2">
-              <ToolButton label="Pencil" active={!erasing} onClick={() => setEraser(false)}>
-                <img src={pencilUrl} alt="" draggable={false} className="size-14 dark:invert" />
-              </ToolButton>
-              <ToolButton label="Eraser" active={erasing} onClick={() => setEraser(true)}>
-                <img src={eraserUrl} alt="" draggable={false} className="size-14 dark:invert" />
-              </ToolButton>
-              <ToolButton label="Undo" onClick={undo}>
-                <img src={undoUrl} alt="" draggable={false} className="size-14 dark:invert" />
-              </ToolButton>
-              {import.meta.env.DEV && (
-                <PressButton className="border px-2 self-center text-2xl" title="Fake score" onClick={addFakeScore}>F</PressButton>
-              )}
-              <PressButton className={`${TOOL_BUTTON} ml-auto`} title="Clear" aria-label="Clear" onClick={() => setConfirmingClear(true)}>
-                <img src={binUrl} alt="" draggable={false} className="size-14 dark:invert" />
-              </PressButton>
+        {/* The gauge sits right above the drawing, centred over the graph as well when that's
+            beside it. */}
+        <div className="flex-1 flex flex-col items-center gap-2">
+          <Gauge score={latest} />
+          {/* The graph sits beside the drawing when the window is wide enough for both, level with
+              the canvas, and otherwise below it, squashed into whatever height is left. */}
+          <div className="flex-1 flex flex-col items-center gap-6 min-[1200px]:flex-row min-[1200px]:items-start min-[1200px]:justify-center">
+            <div className="flex flex-col gap-2" style={{ width: CANVAS_SIZE }}>
+              <DrawingCanvas ref={canvasRef} erasing={erasing} onStroke={handleStroke} />
+              <div className="flex gap-2">
+                <ToolButton label="Pencil" active={!erasing} onClick={() => setEraser(false)}>
+                  <img src={pencilUrl} alt="" draggable={false} className="size-14 dark:invert" />
+                </ToolButton>
+                <ToolButton label="Eraser" active={erasing} onClick={() => setEraser(true)}>
+                  <img src={eraserUrl} alt="" draggable={false} className="size-14 dark:invert" />
+                </ToolButton>
+                <ToolButton label="Undo" onClick={undo}>
+                  <img src={undoUrl} alt="" draggable={false} className="size-14 dark:invert" />
+                </ToolButton>
+                {import.meta.env.DEV && (
+                  <PressButton className="border px-2 self-center text-2xl" title="Fake score" onClick={addFakeScore}>F</PressButton>
+                )}
+                <PressButton className={`${TOOL_BUTTON} ml-auto`} title="Clear" aria-label="Clear" onClick={() => setConfirmingClear(true)}>
+                  <img src={binUrl} alt="" draggable={false} className="size-14 dark:invert" />
+                </PressButton>
+              </div>
+              <div className="flex gap-2 justify-center">
+                <PressButton className="border px-2 w-28 text-2xl" onClick={newWord}>New word</PressButton>
+                <PressButton className="border px-2 w-28 text-2xl" onClick={giveUp}>Give up</PressButton>
+              </div>
             </div>
-            <DrawingCanvas ref={canvasRef} erasing={erasing} onStroke={handleStroke} />
-            <div className="flex gap-2 justify-center">
-              <PressButton className="border px-2 w-28 text-2xl" onClick={newWord}>New word</PressButton>
-              <PressButton className="border px-2 w-28 text-2xl" onClick={giveUp}>Give up</PressButton>
-            </div>
-          </div>
-          <div className="flex-1 flex flex-col items-center gap-2 min-[1200px]:flex-none">
-            {/* Fixed height so the first score doesn't shift the layout. */}
-            <div className="text-3xl h-9">{latest === undefined ? '' : formatScore(latest)}</div>
             {/* The graph is drawn to this area's height, and positioned absolutely so it can't
                 stretch the area it's measured from. */}
             <div
@@ -259,10 +262,11 @@ function DrawTheThing() {
                   width={CANVAS_SIZE}
                   height={graphHeight}
                   levels={GRAPH_LEVELS}
-                  padLeft={40}
+                  labels={level => GRAPH_LABELS[level]}
+                  padLeft={56}
                   fontSize={20}
                   fontFamily={FONT}
-                  color="currentColor"
+                  gradient={GRAPH_GRADIENT}
                   sketchy
                   className="absolute inset-0"
                 />
@@ -330,6 +334,75 @@ function useHeight(ref) {
 
 // Scores run from -1 (cold) to +1 (hot).
 const GRAPH_LEVELS = [-1, -0.5, 0, 0.5, 1]
+// Named like the gauge's marks.
+const GRAPH_LABELS = { [-1]: 'ICY', [-0.5]: 'COLD', 0: 'MEH', 0.5: 'WARM', 1: 'HOT!' }
+// guage.svg's gradient, cold to hot.
+const GRAPH_GRADIENT = ['#0013FF', '#DBDBDB', '#FF0000']
+
+// guage.svg's viewBox.
+const GAUGE = { x: -581, y: 345, width: 755.9, height: 392 }
+// Where the arrow's tip lands at -1, 0 and +1, in guage.svg's coordinates: the middle of the
+// coloured band's left end, its top, and its right end.
+const GAUGE_TARGETS = { [-1]: [-492.05, 684.43], 0: [-207.6, 455.75], 1: [76.8, 676.3] }
+// arrow.svg's viewBox size, its tip, and the centre and outer radius of the ring at its base.
+const ARROW = { width: 52.9, height: 307.2, tip: [31.1, 0], base: [21.49, 286.51], baseRadius: 20.75 }
+
+const angleTo = (from, to) => (Math.atan2(to[1] - from[1], to[0] - from[0]) * 180) / Math.PI
+const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1])
+
+// The centre of the circle through three points.
+function circumcentre([ax, ay], [bx, by], [cx, cy]) {
+  const d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
+  const a = ax * ax + ay * ay
+  const b = bx * bx + by * by
+  const c = cx * cx + cy * cy
+  return [(a * (by - cy) + b * (cy - ay) + c * (ay - by)) / d, (a * (cx - bx) + b * (ax - cx) + c * (bx - ax)) / d]
+}
+
+// The arrow pivots on its base from the one point that's the same distance from all three targets,
+// and is scaled so its tip reaches them.
+const PIVOT = circumcentre(GAUGE_TARGETS[-1], GAUGE_TARGETS[0], GAUGE_TARGETS[1])
+const ARROW_SCALE = distance(PIVOT, GAUGE_TARGETS[0]) / distance(ARROW.base, ARROW.tip)
+// How far to turn the arrow from upright to point at each target (it doesn't quite point straight
+// up as drawn).
+const ARROW_ANGLE = angleTo(ARROW.base, ARROW.tip)
+const TURN = Object.fromEntries(Object.entries(GAUGE_TARGETS).map(([score, target]) => [score, angleTo(PIVOT, target) - ARROW_ANGLE]))
+// The view runs down from the top of the gauge to the bottom of the arrow's base, or the bottom of
+// the gauge if that's lower, so neither is cut off.
+const GAUGE_VIEW_HEIGHT = Math.max(GAUGE.height, PIVOT[1] + ARROW.baseRadius * ARROW_SCALE - GAUGE.y)
+const GAUGE_HEIGHT = (CANVAS_SIZE * GAUGE_VIEW_HEIGHT) / GAUGE.width
+
+// The arrow's turn for a score, straight between -1, 0 and +1.
+function gaugeTurn(score) {
+  const s = Math.max(-1, Math.min(1, score))
+  return s < 0 ? TURN[0] + (TURN[0] - TURN[-1]) * s : TURN[0] + (TURN[1] - TURN[0]) * s
+}
+
+// The hot/cold gauge, with its arrow pointing at `score` (resting on 0 until there is one). The
+// view's origin is the pivot, so the arrow turns about it. Inverted for dark mode, with the hue
+// turned back so blue stays cold and red stays hot.
+function Gauge({ score }) {
+  return (
+    <svg
+      viewBox={`${GAUGE.x - PIVOT[0]} ${GAUGE.y - PIVOT[1]} ${GAUGE.width} ${GAUGE_VIEW_HEIGHT}`}
+      width={CANVAS_SIZE}
+      height={GAUGE_HEIGHT}
+      className="dark:invert dark:hue-rotate-180"
+      role="img"
+      aria-label={score === undefined ? 'No score yet' : `Score ${formatScore(score)}`}
+    >
+      <image href={gaugeUrl} x={GAUGE.x - PIVOT[0]} y={GAUGE.y - PIVOT[1]} width={GAUGE.width} height={GAUGE.height} />
+      <g style={{ transform: `rotate(${gaugeTurn(score ?? 0)}deg)`, transformOrigin: '0 0', transition: 'transform 400ms ease-out' }}>
+        <image
+          href={arrowUrl}
+          width={ARROW.width}
+          height={ARROW.height}
+          transform={`scale(${ARROW_SCALE}) translate(${-ARROW.base[0]} ${-ARROW.base[1]})`}
+        />
+      </g>
+    </svg>
+  )
+}
 
 const isLetter = char => /\p{L}/u.test(char)
 
