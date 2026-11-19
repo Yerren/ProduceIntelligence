@@ -12,6 +12,8 @@ import arrowUrl from './assets/arrow.svg'
 
 // Canvas plus the page padding.
 const PAGE_WIDTH = CANVAS_SIZE + 32
+// Set once How to play has been closed, so it only opens by itself on the first visit.
+const SEEN_HELP = 'drawTheThing.seenHowToPlay'
 
 // The handwritten font Rate That Hog uses, loaded in index.css.
 const FONT = '"Delicious Handrawn"'
@@ -82,6 +84,16 @@ function DrawTheThing() {
   const [pattern, setPattern] = useState(null)
   const [gaveUp, setGaveUp] = useState(false)
   const [confirmingClear, setConfirmingClear] = useState(false)
+  // How to play shows by itself on the first visit only; the (?) button brings it back.
+  const [helpOpen, setHelpOpen] = useState(() => {
+    try {
+      return localStorage.getItem(SEEN_HELP) === null
+    } catch {
+      return true
+    }
+  })
+  const [confirmingGiveUp, setConfirmingGiveUp] = useState(false)
+  const [graphOpen, setGraphOpen] = useState(false)
   const screen = useRef(null)
   const content = useRef(null)
   // Phones lay the page out at a fixed width and scroll if they must (useFixedPageWidth); with a
@@ -178,6 +190,22 @@ function DrawTheThing() {
   // Latest response in submission order; a slow reply to an older submission never replaces a newer one.
   const latest = points.findLast(score => score !== undefined)
 
+  const graphView = graphHeight > 0 && (
+    <ScoreGraph
+      points={points}
+      width={CANVAS_SIZE}
+      height={graphHeight}
+      levels={GRAPH_LEVELS}
+      labels={level => GRAPH_LABELS[level]}
+      padLeft={56}
+      fontSize={20}
+      fontFamily={FONT}
+      gradient={GRAPH_GRADIENT}
+      sketchy
+      className="absolute inset-0"
+    />
+  )
+
   return (
     // Exactly screen height, so there's nothing to scroll unless the screen is too short to fit the
     // drawing. touch-pan blocks pinch zoom where browsers ignore user-scalable=no (iOS Safari).
@@ -193,7 +221,8 @@ function DrawTheThing() {
       >
         {/* As wide as the canvas, or when the graph sits beside it, growing toward the width of both
             for as long as the window is tall enough to fit everything else below it. */}
-        <h1>
+        {/* Phones are short on room, so they go without the title. */}
+        {desktop && <h1>
           <img
             src={titleUrl}
             alt="Draw The Thing"
@@ -205,7 +234,7 @@ function DrawTheThing() {
               '--wide': `clamp(${CANVAS_SIZE}px, (100dvh - ${BELOW_TITLE + GAUGE_HEIGHT + 8}px) / ${TITLE_RATIO}, ${2 * CANVAS_SIZE + 24}px)`,
             }}
           />
-        </h1>
+        </h1>}
         {/* Fixed heights so nothing shifts the layout as these fill in. */}
         <div className="flex flex-col items-center gap-2">
           {/* Long categories wrap onto a second line rather than overflow the page. */}
@@ -216,7 +245,13 @@ function DrawTheThing() {
             {category && `Category: ${category}`}
           </p>
           <AnswerSlots pattern={pattern} loaded={category !== null} />
-          <p className="h-6 text-2xl leading-none">{won ? 'You got it!' : gaveUp ? 'You gave up.' : ''}</p>
+          {/* Giving up asks first; once the word is out, the same link moves on to a new one. */}
+          <p className="h-6 text-2xl leading-none">
+            {won ? 'You got it! ' : gaveUp ? 'You gave up. ' : ''}
+            <button type="button" className="underline cursor-pointer" onClick={won || gaveUp ? newWord : () => setConfirmingGiveUp(true)}>
+              {won || gaveUp ? 'New word' : 'Give up'}
+            </button>
+          </p>
         </div>
         {/* The gauge sits right above the drawing, centred over the graph as well when that's
             beside it. */}
@@ -229,52 +264,90 @@ function DrawTheThing() {
               <DrawingCanvas ref={canvasRef} erasing={erasing} onStroke={handleStroke} />
               <div className="flex gap-2">
                 <ToolButton label="Pencil" active={!erasing} onClick={() => setEraser(false)}>
-                  <img src={pencilUrl} alt="" draggable={false} className="size-14" />
+                  <img src={pencilUrl} alt="" draggable={false} className="size-14 [@media(hover:hover)_and_(pointer:fine)]:size-7" />
                 </ToolButton>
                 <ToolButton label="Eraser" active={erasing} onClick={() => setEraser(true)}>
-                  <img src={eraserUrl} alt="" draggable={false} className="size-14" />
+                  <img src={eraserUrl} alt="" draggable={false} className="size-14 [@media(hover:hover)_and_(pointer:fine)]:size-7" />
                 </ToolButton>
                 <ToolButton label="Undo" onClick={undo}>
-                  <img src={undoUrl} alt="" draggable={false} className="size-14" />
+                  <img src={undoUrl} alt="" draggable={false} className="size-14 [@media(hover:hover)_and_(pointer:fine)]:size-7" />
                 </ToolButton>
                 {import.meta.env.DEV && (
                   <PressButton className="border px-2 self-center text-2xl" title="Fake score" onClick={addFakeScore}>F</PressButton>
                 )}
                 <PressButton className={`${TOOL_BUTTON} ml-auto`} title="Clear" aria-label="Clear" onClick={() => setConfirmingClear(true)}>
-                  <img src={binUrl} alt="" draggable={false} className="size-14" />
+                  <img src={binUrl} alt="" draggable={false} className="size-14 [@media(hover:hover)_and_(pointer:fine)]:size-7" />
                 </PressButton>
-              </div>
-              <div className="flex gap-2 justify-center">
-                <PressButton className="border px-2 w-28 text-2xl" onClick={newWord}>New word</PressButton>
-                <PressButton className="border px-2 w-28 text-2xl" onClick={giveUp}>Give up</PressButton>
               </div>
             </div>
             {/* The graph is drawn to this area's height, and positioned absolutely so it can't
-                stretch the area it's measured from. */}
-            <div
-              ref={graphArea}
-              className={`relative flex-1 ${desktop ? 'min-h-64' : 'min-h-24'} min-[1200px]:flex-none min-[1200px]:h-(--size)`}
-              style={{ width: CANVAS_SIZE, maxHeight: CANVAS_SIZE, '--size': `${CANVAS_SIZE}px` }}
-            >
-              {graphHeight > 0 && (
-                <ScoreGraph
-                  points={points}
-                  width={CANVAS_SIZE}
-                  height={graphHeight}
-                  levels={GRAPH_LEVELS}
-                  labels={level => GRAPH_LABELS[level]}
-                  padLeft={56}
-                  fontSize={20}
-                  fontFamily={FONT}
-                  gradient={GRAPH_GRADIENT}
-                  sketchy
-                  className="absolute inset-0"
-                />
-              )}
-            </div>
+                stretch the area it's measured from. On a phone it lives in a drawer that slides
+                out over the page from the right edge, hidden until its tab is tapped. */}
+            {desktop ? (
+              <div
+                ref={graphArea}
+                className="relative flex-1 min-h-64 min-[1200px]:flex-none min-[1200px]:h-(--size)"
+                style={{ width: CANVAS_SIZE, maxHeight: CANVAS_SIZE, '--size': `${CANVAS_SIZE}px` }}
+              >
+                {graphView}
+              </div>
+            ) : (
+              <>
+              {/* The open drawer is wider than the tab leaves room for, so tapping the graph or
+                  anywhere around it closes it again. */}
+              {graphOpen && <div className="fixed inset-0 z-10" onClick={() => setGraphOpen(false)} />}
+              <div
+                className={`fixed top-1/4 right-0 z-20 flex items-center transition-transform duration-300 motion-reduce:transition-none ${graphOpen ? '' : 'translate-x-(--hide)'}`}
+                style={{ '--hide': `${CANVAS_SIZE + 36}px` }}
+              >
+                <button
+                  type="button"
+                  className="border-2 border-r-0 bg-white px-2 py-4 text-2xl [writing-mode:vertical-rl] rotate-180"
+                  aria-expanded={graphOpen}
+                  onClick={() => setGraphOpen(o => !o)}
+                >
+                  {graphOpen ? 'Hide graph' : 'Graph'}
+                </button>
+                <div className="border-2 border-r-0 bg-white p-4" onClick={() => setGraphOpen(false)}>
+                  <div ref={graphArea} className="relative" style={{ width: CANVAS_SIZE, height: CANVAS_SIZE * 0.75 }}>
+                    {graphView}
+                  </div>
+                </div>
+              </div>
+              </>
+            )}
           </div>
         </div>
       </div>
+      <PressButton
+        className="fixed top-2 right-2 z-10 size-10 rounded-full border-2 bg-white text-2xl leading-none"
+        title="How to play"
+        aria-label="How to play"
+        onClick={() => setHelpOpen(true)}
+      >
+        ?
+      </PressButton>
+      <HowToPlay
+        open={helpOpen}
+        onClose={() => {
+          setHelpOpen(false)
+          try {
+            localStorage.setItem(SEEN_HELP, '1')
+          } catch {
+            // Without storage it just shows again next visit.
+          }
+        }}
+      />
+      <ConfirmDialog
+        open={confirmingGiveUp}
+        message="Give up on this word?"
+        confirmLabel="Give up"
+        onConfirm={() => {
+          setConfirmingGiveUp(false)
+          giveUp()
+        }}
+        onCancel={() => setConfirmingGiveUp(false)}
+      />
       <ConfirmDialog
         open={confirmingClear}
         message="Clear the drawing?"
@@ -423,16 +496,22 @@ function AnswerSlots({ pattern, loaded }) {
       </div>
     )
   }
+  // Sized in ems so that a long word shrinks to fit across the canvas rather than wrapping or
+  // running off the screen. Widths are in ems of the 45px text: letter slots 0.8, spaces 0.53,
+  // punctuation 0.71, the gap 0.27, and about 0.5 for each character of the length label.
+  const width = [...pattern].reduce((sum, char) => sum + (char === ' ' ? 0.53 : !isLetter(char) && char !== '_' ? 0.71 : 0.8), 0)
+    + 0.27 + lengthLabel(pattern).length * 0.5
+  const fontSize = Math.min(45, CANVAS_SIZE / width)
   return (
-    <div className="flex items-end gap-3 h-14 text-[45px] leading-none">
+    <div className="flex items-end gap-[0.27em] h-14 leading-none" style={{ fontSize }}>
       <div className="flex h-full items-end">
         {[...pattern].map((char, i) => {
-          if (char === ' ') return <span key={i} className="w-6" />
-          if (!isLetter(char) && char !== '_') return <span key={i} className="w-8 text-center">{char}</span>
-          return <span key={i} className="w-8 mx-0.5 text-center border-b-2">{char === '_' ? '' : char}</span>
+          if (char === ' ') return <span key={i} className="w-[0.53em]" />
+          if (!isLetter(char) && char !== '_') return <span key={i} className="w-[0.71em] text-center">{char}</span>
+          return <span key={i} className="w-[0.71em] mx-[0.045em] text-center border-b-2">{char === '_' ? '' : char}</span>
         })}
       </div>
-      <span>{lengthLabel(pattern)}</span>
+      <span className="whitespace-nowrap">{lengthLabel(pattern)}</span>
     </div>
   )
 }
@@ -462,7 +541,7 @@ function PressButton({ className = '', onPointerDown, children, ...props }) {
   )
 }
 
-const TOOL_BUTTON = `relative size-20 border flex items-center justify-center overflow-hidden`
+const TOOL_BUTTON = `relative size-20 [@media(hover:hover)_and_(pointer:fine)]:size-10 border flex items-center justify-center overflow-hidden`
 
 // A toggle (one with `active`) switches on as soon as it's pressed down rather than on release; a
 // keyboard press switches it on with the click.
@@ -518,6 +597,47 @@ function ConfirmDialog({ open, message, confirmLabel, onConfirm, onCancel }) {
       <div className="flex gap-4 justify-center">
         <PressButton className="border-2 px-4 py-1 text-3xl min-w-28" autoFocus onClick={onCancel}>Cancel</PressButton>
         <PressButton className="border-2 border-red-600 bg-red-500/20 px-4 py-1 text-3xl min-w-28" onClick={onConfirm}>{confirmLabel}</PressButton>
+      </div>
+    </dialog>
+  )
+}
+
+function HowToPlay({ open, onClose }) {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const dialog = ref.current
+    if (open && !dialog.open) dialog.showModal()
+    if (!open && dialog.open) dialog.close()
+  }, [open])
+
+  return (
+    <dialog
+      ref={ref}
+      className="m-auto w-[min(32rem,calc(100vw-2rem))] border-2 border-black bg-white text-black p-6 backdrop:bg-black/40"
+      style={{ fontFamily: FONT }}
+      onCancel={e => {
+        e.preventDefault()
+        onClose()
+      }}
+      onClick={e => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <img src={titleUrl} alt="Draw The Thing" draggable={false} className="w-full mb-4" />
+      <div className="flex flex-col gap-3 text-2xl leading-tight text-center mb-6">
+        <p className="text-3xl">Goal: Uncover the <span className="underline">secret word</span> via drawing</p>
+        {/* Hot and cold in the gauge's own red and blue. */}
+        <p>
+          You'll be told how close (<span className="text-[#FF0000]">hot</span>) or far away (
+          <span className="text-[#0013FF]">cold</span>) you are after every brush stroke
+        </p>
+        <p>The category is there to get you started</p>
+        <p>The hotter you get, the more information will be revealed</p>
+        <p>Reveal the full word to win!</p>
+      </div>
+      <div className="flex justify-center">
+        <PressButton className="border-2 px-4 py-1 text-3xl min-w-28" autoFocus onClick={onClose}>Let's go!</PressButton>
       </div>
     </dialog>
   )
