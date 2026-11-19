@@ -78,6 +78,8 @@ function DrawTheThing() {
   // Every graph point is a submission id; scores arrive for them out of order.
   const [graph, setGraph] = useState([])
   const [scores, setScores] = useState({})
+  // Brush strokes drawn for this word until it's guessed, for the win message and sharing.
+  const [strokeCount, setStrokeCount] = useState(0)
   const [erasing, setErasing] = useState(false)
   // Promise of the current word's { token, category, pattern }, so strokes made while it loads wait for it.
   // Replies that land after a new word was picked are ignored.
@@ -125,6 +127,7 @@ function DrawTheThing() {
     const current = word.current
     strokes.current.push(id)
     setGraph(g => [...g, id])
+    if (!won) setStrokeCount(n => n + 1)
     try {
       const image = canvasRef.current.exportImage('png', { width: CANVAS_SIZE, height: CANVAS_SIZE })
       frames.current.push(image)
@@ -150,7 +153,7 @@ function DrawTheThing() {
   // Repeats the score from before the last stroke on the graph (or its pending reply) rather than
   // resubmitting the drawing.
   function undo() {
-    if (strokes.current.length === 0) return
+    if (won || strokes.current.length === 0) return
     canvasRef.current.undo()
     strokes.current.pop()
     const previous = strokes.current.at(-1)
@@ -180,6 +183,7 @@ function DrawTheThing() {
     frames.current = []
     setGraph([])
     setScores({})
+    setStrokeCount(0)
   }
 
   // Dev only: fills in the whole word as if it had been guessed, to get straight to the win.
@@ -275,7 +279,7 @@ function DrawTheThing() {
           <AnswerSlots pattern={pattern} loaded={category !== null} />
           {/* Giving up asks first; once the word is out, the same link moves on to a new one. */}
           <p className="h-6 text-2xl leading-none">
-            {won ? 'You got it! ' : gaveUp ? 'You gave up. ' : ''}
+            {won ? `You got it in ${brushStrokes(strokeCount)}! ` : gaveUp ? 'You gave up. ' : ''}
             {won && (
               <>
                 <button type="button" className="underline cursor-pointer" onClick={() => setSharing(true)}>Share</button>
@@ -301,7 +305,8 @@ function DrawTheThing() {
           <div className="flex-1 flex flex-col items-center gap-6 min-[1200px]:flex-row min-[1200px]:items-start min-[1200px]:justify-center">
             <div className="flex flex-col gap-2" style={{ width: CANVAS_SIZE }}>
               <div className="relative">
-                <DrawingCanvas ref={canvasRef} erasing={erasing} onStroke={handleStroke} />
+                {/* Once the word is guessed the drawing is final. */}
+                <DrawingCanvas ref={canvasRef} erasing={erasing} readOnly={won} onStroke={handleStroke} />
                 {won && (
                   <PressButton
                     className="absolute bottom-4 left-1/2 -translate-x-1/2 border-2 bg-white px-6 py-2 text-4xl shadow-[4px_4px_0_black]"
@@ -311,7 +316,7 @@ function DrawTheThing() {
                   </PressButton>
                 )}
               </div>
-              <div className="flex gap-2">
+              <fieldset disabled={won} className="flex gap-2 disabled:opacity-40">
                 <ToolButton label="Pencil" active={!erasing} onClick={() => setEraser(false)}>
                   <img src={pencilUrl} alt="" draggable={false} className="size-14 [@media(hover:hover)_and_(pointer:fine)]:size-7" />
                 </ToolButton>
@@ -330,7 +335,7 @@ function DrawTheThing() {
                 <PressButton className={`${TOOL_BUTTON} ml-auto`} title="Clear" aria-label="Clear" onClick={() => setConfirmingClear(true)}>
                   <img src={binUrl} alt="" draggable={false} className="size-14 [@media(hover:hover)_and_(pointer:fine)]:size-7" />
                 </PressButton>
-              </div>
+              </fieldset>
             </div>
             {/* The graph is drawn to this area's height, and positioned absolutely so it can't
                 stretch the area it's measured from. On a phone it lives in a drawer that slides
@@ -399,6 +404,7 @@ function DrawTheThing() {
       <ShareDialog
         open={sharing}
         word={pattern}
+        strokeCount={strokeCount}
         frames={frames}
         canvasRef={canvasRef}
         onClose={() => setSharing(false)}
@@ -607,7 +613,7 @@ function ConfirmDialog({ open, message, confirmLabel, onConfirm, onCancel }) {
 
 // Offers the finished drawing as a picture, or the whole drawing history as an animation, each
 // with the word underneath. Both are made when the dialog opens.
-function ShareDialog({ open, word, frames, canvasRef, onClose: close }) {
+function ShareDialog({ open, word, strokeCount, frames, canvasRef, onClose: close }) {
   const ref = useRef(null)
   const [files, setFiles] = useState(null)
   function onClose() {
@@ -632,6 +638,9 @@ function ShareDialog({ open, word, frames, canvasRef, onClose: close }) {
     }
   }, [open, word, frames, canvasRef])
 
+  const thing = (word ?? '').toUpperCase()
+  const text = `I drew ${/^[AEIOU]/.test(thing) ? 'an' : 'a'} ${thing} in ${brushStrokes(strokeCount)}! ${location.origin + location.pathname}`
+
   return (
     <dialog
       ref={ref}
@@ -648,22 +657,28 @@ function ShareDialog({ open, word, frames, canvasRef, onClose: close }) {
       <CloseButton onClick={onClose} />
       <p className="text-4xl text-center mb-4">Share your thing</p>
       <div className="grid grid-cols-2 gap-4">
-        <ShareOption label="Picture" file={files?.image} tilt="-rotate-2" />
-        <ShareOption label="Replay" file={files?.gif} tilt="rotate-2" />
+        <ShareOption label="Picture" file={files?.image} text={text} tilt="-rotate-2" />
+        <ShareOption label="Replay" file={files?.gif} text={text} tilt="rotate-2" />
       </div>
     </dialog>
   )
 }
 
 // A preview of `file` that shares it when tapped where the device can, or else downloads it.
-function ShareOption({ label, file, tilt }) {
+function ShareOption({ label, file, text, tilt }) {
   const url = useMemo(() => file && URL.createObjectURL(file), [file])
   useEffect(() => () => url && URL.revokeObjectURL(url), [url])
 
   async function share() {
     if (navigator.canShare?.({ files: [file] })) {
       try {
-        await navigator.share({ files: [file], title: 'Draw The Thing' })
+        // Some apps keep the text and link alongside the file; others drop them and send only the file.
+        await navigator.share({
+          files: [file],
+          title: 'Draw The Thing',
+          // The link goes in the text, as apps that take a separate url often drop the text.
+          text,
+        })
       } catch (err) {
         if (err.name !== 'AbortError') console.error(err)
       }
@@ -687,6 +702,10 @@ function ShareOption({ label, file, tilt }) {
         {url ? <img src={url} alt="" className="w-full h-full" /> : 'Making…'}
       </PressButton>
   )
+}
+
+function brushStrokes(n) {
+  return `${n} brush stroke${n === 1 ? '' : 's'}`
 }
 
 // The × in a dialog's top-right corner.
