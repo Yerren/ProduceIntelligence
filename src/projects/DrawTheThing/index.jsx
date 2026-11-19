@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState } from 'react'
 import DrawingCanvas from '../shared/DrawingCanvas.jsx'
 import ScoreGraph from '../shared/ScoreGraph.jsx'
@@ -96,10 +97,10 @@ function DrawTheThing() {
   const [graphOpen, setGraphOpen] = useState(false)
   const screen = useRef(null)
   const content = useRef(null)
-  // Phones lay the page out at a fixed width and scroll if they must (useFixedPageWidth); with a
-  // mouse, the page shrinks to fit the window instead. On a phone the graph can shrink further too.
+  // Phones lay the page out at a fixed width (useFixedPageWidth). Either way, a page too tall for the
+  // screen is shrunk to fit rather than scrolled.
   const desktop = useMediaQuery('(hover: hover) and (pointer: fine)')
-  const fit = useFitHeight(screen, content, desktop)
+  const fit = useFitHeight(screen, content)
 
   useFixedPageWidth(PAGE_WIDTH)
 
@@ -207,9 +208,9 @@ function DrawTheThing() {
   )
 
   return (
-    // Exactly screen height, so there's nothing to scroll unless the screen is too short to fit the
-    // drawing. touch-pan blocks pinch zoom where browsers ignore user-scalable=no (iOS Safari).
-    <div ref={screen} className="h-dvh overflow-auto touch-pan-x touch-pan-y bg-white text-black [color-scheme:light]" style={{ fontFamily: FONT }}>
+    // Exactly screen height, with the page shrunk to fit inside it, so there is never anything to
+    // scroll. touch-pan blocks pinch zoom where browsers ignore user-scalable=no (iOS Safari).
+    <div ref={screen} className="h-dvh overflow-hidden touch-pan-x touch-pan-y bg-white text-black [color-scheme:light]" style={{ fontFamily: FONT }}>
       {/* At least screen height, so the graph can grow into what's left below the drawing. On a
           desktop screen too short for all of it, the whole page is scaled down to fit (the canvas
           maps the pointer through the transform); the negative margin takes back the space the
@@ -292,29 +293,35 @@ function DrawTheThing() {
                 {graphView}
               </div>
             ) : (
+              // Outside the page, so it sits against the real screen edge rather than the edge of the
+              // page when that's been shrunk to fit.
+              createPortal(
               <>
               {/* The open drawer is wider than the tab leaves room for, so tapping the graph or
                   anywhere around it closes it again. */}
               {graphOpen && <div className="fixed inset-0 z-10" onClick={() => setGraphOpen(false)} />}
+              {/* Slides out from the left over the gauge and word, leaving the drawing in view. */}
               <div
-                className={`fixed top-1/4 right-0 z-20 flex items-center transition-transform duration-300 motion-reduce:transition-none ${graphOpen ? '' : 'translate-x-(--hide)'}`}
-                style={{ '--hide': `${CANVAS_SIZE + 36}px` }}
+                className={`fixed top-0 left-0 z-20 transition-transform duration-300 motion-reduce:transition-none ${graphOpen ? '' : '-translate-x-full'}`}
+                style={{ fontFamily: FONT }}
               >
+                <div className="border-2 border-t-0 border-l-0 bg-white p-3" onClick={() => setGraphOpen(false)}>
+                  <div ref={graphArea} className="relative" style={{ width: CANVAS_SIZE, height: CANVAS_SIZE * 0.75 }}>
+                    {graphView}
+                  </div>
+                </div>
                 <button
                   type="button"
-                  className="border-2 border-r-0 bg-white px-2 py-4 text-2xl [writing-mode:vertical-rl] rotate-180"
+                  className="absolute top-24 left-full border-2 border-l-0 bg-white px-2 py-4 text-2xl [writing-mode:vertical-rl]"
                   aria-expanded={graphOpen}
                   onClick={() => setGraphOpen(o => !o)}
                 >
                   {graphOpen ? 'Hide graph' : 'Graph'}
                 </button>
-                <div className="border-2 border-r-0 bg-white p-4" onClick={() => setGraphOpen(false)}>
-                  <div ref={graphArea} className="relative" style={{ width: CANVAS_SIZE, height: CANVAS_SIZE * 0.75 }}>
-                    {graphView}
-                  </div>
-                </div>
               </div>
-              </>
+              </>,
+                document.body,
+              )
             )}
           </div>
         </div>
@@ -376,21 +383,21 @@ function useMediaQuery(query) {
 }
 
 // How far to scale `content` down for it to fit in the height of `screen` (never up), along with
-// its unscaled height; always 1 unless `enabled`. Scaling doesn't change the layout size that's
+// its unscaled height. Scaling doesn't change the layout size that's
 // measured, so it can't feed back into itself.
-function useFitHeight(screen, content, enabled) {
+function useFitHeight(screen, content) {
   const [fit, setFit] = useState({ scale: 1, height: 0 })
   useEffect(() => {
     function update() {
       const height = content.current.offsetHeight
-      const scale = enabled ? Math.min(1, screen.current.clientHeight / height) : 1
+      const scale = Math.min(1, screen.current.clientHeight / height)
       setFit(f => (f.scale === scale && f.height === height ? f : { scale, height }))
     }
     const observer = new ResizeObserver(update)
     observer.observe(screen.current)
     observer.observe(content.current)
     return () => observer.disconnect()
-  }, [screen, content, enabled])
+  }, [screen, content])
   return fit
 }
 
