@@ -1,7 +1,8 @@
 import { createPortal } from 'react-dom'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import DrawingCanvas from '../shared/DrawingCanvas.jsx'
 import ScoreGraph from '../shared/ScoreGraph.jsx'
+import { HEIGHT as SHARE_HEIGHT, WIDTH as SHARE_WIDTH, shareGif, shareImage } from './share.js'
 import { CANVAS_SIZE, postDrawing, useFixedPageWidth } from '../shared/drawing.js'
 import eraserUrl from '../shared/assets/eraser.svg'
 import pencilUrl from '../shared/assets/pencil.svg'
@@ -72,6 +73,9 @@ function DrawTheThing() {
   // The submission id for each stroke currently on the canvas (mirrors the canvas undo stack), so
   // undoing a stroke can reuse the score from before it instead of resubmitting.
   const strokes = useRef([])
+  // A promise of the canvas image after every stroke, undo and clear (null for blank), in order,
+  // for the shareable replay.
+  const frames = useRef([])
   // Every graph point is a submission id; scores arrive for them out of order.
   const [graph, setGraph] = useState([])
   const [scores, setScores] = useState({})
@@ -94,6 +98,7 @@ function DrawTheThing() {
     }
   })
   const [confirmingGiveUp, setConfirmingGiveUp] = useState(false)
+  const [sharing, setSharing] = useState(false)
   const [graphOpen, setGraphOpen] = useState(false)
   const screen = useRef(null)
   const content = useRef(null)
@@ -122,7 +127,9 @@ function DrawTheThing() {
     strokes.current.push(id)
     setGraph(g => [...g, id])
     try {
-      const dataUrl = await canvasRef.current.exportImage('png', { width: CANVAS_SIZE, height: CANVAS_SIZE })
+      const image = canvasRef.current.exportImage('png', { width: CANVAS_SIZE, height: CANVAS_SIZE })
+      frames.current.push(image)
+      const dataUrl = await image
       const res = await rateDrawing(dataUrl, (await current).token)
       if (word.current !== current) return
       setScores(s => ({ ...s, [id]: res.score }))
@@ -149,12 +156,20 @@ function DrawTheThing() {
     strokes.current.pop()
     const previous = strokes.current.at(-1)
     if (previous !== undefined) setGraph(g => [...g, previous])
+    frames.current.push(snapshot())
+  }
+
+  // The canvas image once the change just made has been drawn.
+  function snapshot() {
+    return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      .then(() => canvasRef.current.exportImage('png', { width: CANVAS_SIZE, height: CANVAS_SIZE }))
   }
 
   // Wipes the drawing but keeps the graph.
   function clear() {
     canvasRef.current.resetCanvas()
     strokes.current = []
+    frames.current.push(Promise.resolve(null))
   }
 
   function newWord() {
@@ -163,8 +178,21 @@ function DrawTheThing() {
     setPattern(null)
     setGaveUp(false)
     clear()
+    frames.current = []
     setGraph([])
     setScores({})
+  }
+
+  // Dev only: fills in the whole word as if it had been guessed, to get straight to the win.
+  async function fakeWin() {
+    const current = word.current
+    try {
+      const answer = await revealWord((await current).token)
+      if (word.current !== current) return
+      setPattern(answer)
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   // Fills in the whole word.
@@ -249,6 +277,12 @@ function DrawTheThing() {
           {/* Giving up asks first; once the word is out, the same link moves on to a new one. */}
           <p className="h-6 text-2xl leading-none">
             {won ? 'You got it! ' : gaveUp ? 'You gave up. ' : ''}
+            {won && (
+              <>
+                <button type="button" className="underline cursor-pointer" onClick={() => setSharing(true)}>Share</button>
+                {' · '}
+              </>
+            )}
             <button type="button" className="underline cursor-pointer" onClick={won || gaveUp ? newWord : () => setConfirmingGiveUp(true)}>
               {won || gaveUp ? 'New word' : 'Give up'}
             </button>
@@ -262,7 +296,17 @@ function DrawTheThing() {
               the canvas, and otherwise below it, squashed into whatever height is left. */}
           <div className="flex-1 flex flex-col items-center gap-6 min-[1200px]:flex-row min-[1200px]:items-start min-[1200px]:justify-center">
             <div className="flex flex-col gap-2" style={{ width: CANVAS_SIZE }}>
-              <DrawingCanvas ref={canvasRef} erasing={erasing} onStroke={handleStroke} />
+              <div className="relative">
+                <DrawingCanvas ref={canvasRef} erasing={erasing} onStroke={handleStroke} />
+                {won && (
+                  <PressButton
+                    className="absolute bottom-4 left-1/2 -translate-x-1/2 border-2 bg-white px-6 py-2 text-4xl shadow-[4px_4px_0_black]"
+                    onClick={() => setSharing(true)}
+                  >
+                    Share
+                  </PressButton>
+                )}
+              </div>
               <div className="flex gap-2">
                 <ToolButton label="Pencil" active={!erasing} onClick={() => setEraser(false)}>
                   <img src={pencilUrl} alt="" draggable={false} className="size-14 [@media(hover:hover)_and_(pointer:fine)]:size-7" />
@@ -275,6 +319,9 @@ function DrawTheThing() {
                 </ToolButton>
                 {import.meta.env.DEV && (
                   <PressButton className="border px-2 self-center text-2xl" title="Fake score" onClick={addFakeScore}>F</PressButton>
+                )}
+                {import.meta.env.DEV && (
+                  <PressButton className="border px-2 self-center text-2xl" title="Fake win" onClick={fakeWin}>W</PressButton>
                 )}
                 <PressButton className={`${TOOL_BUTTON} ml-auto`} title="Clear" aria-label="Clear" onClick={() => setConfirmingClear(true)}>
                   <img src={binUrl} alt="" draggable={false} className="size-14 [@media(hover:hover)_and_(pointer:fine)]:size-7" />
@@ -344,6 +391,13 @@ function DrawTheThing() {
             // Without storage it just shows again next visit.
           }
         }}
+      />
+      <ShareDialog
+        open={sharing}
+        word={pattern}
+        frames={frames}
+        canvasRef={canvasRef}
+        onClose={() => setSharing(false)}
       />
       <ConfirmDialog
         open={confirmingGiveUp}
@@ -609,6 +663,101 @@ function ConfirmDialog({ open, message, confirmLabel, onConfirm, onCancel }) {
   )
 }
 
+// Offers the finished drawing as a picture, or the whole drawing history as an animation, each
+// with the word underneath. Both are made when the dialog opens.
+function ShareDialog({ open, word, frames, canvasRef, onClose: close }) {
+  const ref = useRef(null)
+  const [files, setFiles] = useState(null)
+  function onClose() {
+    setFiles(null)
+    close()
+  }
+
+  useEffect(() => {
+    const dialog = ref.current
+    if (open && !dialog.open) dialog.showModal()
+    if (!open && dialog.open) dialog.close()
+    if (!open) return
+    let cancelled = false
+    ;(async () => {
+      const final = await canvasRef.current.exportImage('png', { width: CANVAS_SIZE, height: CANVAS_SIZE })
+      const history = await Promise.all(frames.current)
+      const [image, gif] = await Promise.all([shareImage(final, word), shareGif([...history, final], word)])
+      if (!cancelled) setFiles({ image, gif })
+    })().catch(err => console.error(err))
+    return () => {
+      cancelled = true
+    }
+  }, [open, word, frames, canvasRef])
+
+  return (
+    <dialog
+      ref={ref}
+      className="m-auto w-[min(36rem,calc(100vw-2rem))] border-2 border-black bg-white text-black p-6 backdrop:bg-black/40"
+      style={{ fontFamily: FONT }}
+      onCancel={e => {
+        e.preventDefault()
+        onClose()
+      }}
+      onClick={e => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <CloseButton onClick={onClose} />
+      <p className="text-4xl text-center mb-4">Share your thing</p>
+      <div className="grid grid-cols-2 gap-4">
+        <ShareOption label="Picture" file={files?.image} tilt="-rotate-2" />
+        <ShareOption label="Replay" file={files?.gif} tilt="rotate-2" />
+      </div>
+    </dialog>
+  )
+}
+
+// A preview of `file` that shares it when tapped where the device can, or else downloads it.
+function ShareOption({ label, file, tilt }) {
+  const url = useMemo(() => file && URL.createObjectURL(file), [file])
+  useEffect(() => () => url && URL.revokeObjectURL(url), [url])
+
+  async function share() {
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: 'Draw The Thing' })
+      } catch (err) {
+        if (err.name !== 'AbortError') console.error(err)
+      }
+      return
+    }
+    const link = document.createElement('a')
+    link.href = url
+    link.download = file.name
+    link.click()
+  }
+
+  // The preview itself is the button. Tilted a touch, like a photo dropped on a table.
+  return (
+      <PressButton
+        className={`${tilt} w-full flex items-center justify-center text-2xl disabled:cursor-wait shadow-[3px_4px_8px_rgb(0_0_0/0.25)]`}
+        style={{ aspectRatio: `${SHARE_WIDTH} / ${SHARE_HEIGHT}` }}
+        disabled={!file}
+        aria-label={`Share ${label.toLowerCase()}`}
+        onClick={share}
+      >
+        {url ? <img src={url} alt="" className="w-full h-full" /> : 'Making…'}
+      </PressButton>
+  )
+}
+
+// The × in a dialog's top-right corner.
+function CloseButton({ onClick }) {
+  return (
+    <button type="button" className="absolute top-3 right-3 size-8 cursor-pointer outline-none" aria-label="Close" onClick={onClick}>
+      <svg viewBox="0 0 24 24" className="size-full" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+        <path d="M5 5 L19 19 M19 5 L5 19" />
+      </svg>
+    </button>
+  )
+}
+
 function HowToPlay({ open, onClose }) {
   const ref = useRef(null)
 
@@ -631,7 +780,8 @@ function HowToPlay({ open, onClose }) {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <img src={titleUrl} alt="Draw The Thing" draggable={false} className="w-full mb-4" />
+      <CloseButton onClick={onClose} />
+      <img src={titleUrl} alt="Draw The Thing" draggable={false} className="w-full mb-4 mt-4" />
       <div className="flex flex-col gap-3 text-2xl leading-tight text-center mb-6">
         <p className="text-3xl">Goal: Uncover the <span className="underline">secret word</span> via drawing</p>
         {/* Hot and cold in the gauge's own red and blue. */}
