@@ -353,7 +353,7 @@ function DrawTheThing() {
               {graphOpen && <div className="fixed inset-0 z-10" onClick={() => setGraphOpen(false)} />}
               {/* Slides out from the left over the gauge and word, leaving the drawing in view. */}
               <div
-                className={`fixed top-0 left-0 z-20 transition-transform duration-300 motion-reduce:transition-none ${graphOpen ? '' : '-translate-x-full'}`}
+                className={`fixed top-0 left-0 z-20 text-black [color-scheme:light] transition-transform duration-300 motion-reduce:transition-none ${graphOpen ? '' : '-translate-x-full'}`}
                 style={{ fontFamily: FONT }}
               >
                 <div className="border-2 border-t-0 border-l-0 bg-white p-3" onClick={() => setGraphOpen(false)}>
