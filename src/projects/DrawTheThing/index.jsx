@@ -181,7 +181,7 @@ function DrawTheThing() {
   return (
     // Exactly screen height, so there's nothing to scroll unless the screen is too short to fit the
     // drawing. touch-pan blocks pinch zoom where browsers ignore user-scalable=no (iOS Safari).
-    <div ref={screen} className="h-dvh overflow-auto touch-pan-x touch-pan-y" style={{ fontFamily: FONT }}>
+    <div ref={screen} className="h-dvh overflow-auto touch-pan-x touch-pan-y bg-white text-black [color-scheme:light]" style={{ fontFamily: FONT }}>
       {/* At least screen height, so the graph can grow into what's left below the drawing. On a
           desktop screen too short for all of it, the whole page is scaled down to fit (the canvas
           maps the pointer through the transform); the negative margin takes back the space the
@@ -198,7 +198,7 @@ function DrawTheThing() {
             src={titleUrl}
             alt="Draw The Thing"
             draggable={false}
-            className="w-(--canvas) min-[1200px]:w-(--wide) dark:invert"
+            className="w-(--canvas) min-[1200px]:w-(--wide)"
             style={{
               '--canvas': `${CANVAS_SIZE}px`,
               // Grows into whatever height is spare, between the canvas width and the width of both.
@@ -229,19 +229,19 @@ function DrawTheThing() {
               <DrawingCanvas ref={canvasRef} erasing={erasing} onStroke={handleStroke} />
               <div className="flex gap-2">
                 <ToolButton label="Pencil" active={!erasing} onClick={() => setEraser(false)}>
-                  <img src={pencilUrl} alt="" draggable={false} className="size-14 dark:invert" />
+                  <img src={pencilUrl} alt="" draggable={false} className="size-14" />
                 </ToolButton>
                 <ToolButton label="Eraser" active={erasing} onClick={() => setEraser(true)}>
-                  <img src={eraserUrl} alt="" draggable={false} className="size-14 dark:invert" />
+                  <img src={eraserUrl} alt="" draggable={false} className="size-14" />
                 </ToolButton>
                 <ToolButton label="Undo" onClick={undo}>
-                  <img src={undoUrl} alt="" draggable={false} className="size-14 dark:invert" />
+                  <img src={undoUrl} alt="" draggable={false} className="size-14" />
                 </ToolButton>
                 {import.meta.env.DEV && (
                   <PressButton className="border px-2 self-center text-2xl" title="Fake score" onClick={addFakeScore}>F</PressButton>
                 )}
                 <PressButton className={`${TOOL_BUTTON} ml-auto`} title="Clear" aria-label="Clear" onClick={() => setConfirmingClear(true)}>
-                  <img src={binUrl} alt="" draggable={false} className="size-14 dark:invert" />
+                  <img src={binUrl} alt="" draggable={false} className="size-14" />
                 </PressButton>
               </div>
               <div className="flex gap-2 justify-center">
@@ -379,15 +379,13 @@ function gaugeTurn(score) {
 }
 
 // The hot/cold gauge, with its arrow pointing at `score` (resting on 0 until there is one). The
-// view's origin is the pivot, so the arrow turns about it. Inverted for dark mode, with the hue
-// turned back so blue stays cold and red stays hot.
+// view's origin is the pivot, so the arrow turns about it.
 function Gauge({ score }) {
   return (
     <svg
       viewBox={`${GAUGE.x - PIVOT[0]} ${GAUGE.y - PIVOT[1]} ${GAUGE.width} ${GAUGE_VIEW_HEIGHT}`}
       width={CANVAS_SIZE}
       height={GAUGE_HEIGHT}
-      className="dark:invert dark:hue-rotate-180"
       role="img"
       aria-label={score === undefined ? 'No score yet' : `Score ${formatScore(score)}`}
     >
@@ -477,7 +475,7 @@ function ToolButton({ label, active, onClick, children }) {
 
   return (
     <PressButton
-      className={`${TOOL_BUTTON} ${active ? 'bg-black/15 dark:bg-white/25' : ''}`}
+      className={`${TOOL_BUTTON} ${active ? 'bg-black/15' : ''}`}
       title={label}
       aria-label={label}
       aria-pressed={active}
@@ -505,7 +503,7 @@ function ConfirmDialog({ open, message, confirmLabel, onConfirm, onCancel }) {
   return (
     <dialog
       ref={ref}
-      className="m-auto max-w-[calc(100vw-2rem)] border-2 border-black bg-white text-black p-6 backdrop:bg-black/40 dark:border-white dark:bg-black dark:text-white dark:backdrop:bg-white/20"
+      className="m-auto max-w-[calc(100vw-2rem)] border-2 border-black bg-white text-black p-6 backdrop:bg-black/40"
       style={{ fontFamily: FONT }}
       onCancel={e => {
         e.preventDefault()
