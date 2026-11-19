@@ -1,4 +1,4 @@
-// Shared by the Fun Zone drawing games.
+// Shared by the Just For Fun drawing games.
 import { useEffect } from 'react'
 
 // The drawing is this many px square, on screen and when sent to be rated.

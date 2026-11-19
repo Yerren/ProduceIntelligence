@@ -76,7 +76,7 @@ function Layout() {
     { label: 'Home', to: '/', active: onHome && !onMyWork, onClick: closeMenu },
     { label: 'My Work', to: { pathname: '/', hash: MY_WORK_ID }, active: onMyWork, onClick: goToMyWork },
     { label: 'Slides', to: '/Slides', active: pathname.startsWith('/Slides'), onClick: closeMenu },
-    { label: 'The Fun Zone', to: '/FunZone', active: pathname.startsWith('/FunZone'), onClick: closeMenu },
+    { label: 'Just For Fun', to: '/JustForFun', active: pathname.startsWith('/JustForFun'), onClick: closeMenu },
   ]
 
   return (

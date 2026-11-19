@@ -9,14 +9,14 @@ src/
   main.jsx, App.jsx, index.css   entry point, routes, global styles
   site/                          the main website (everything inside the sidebar Layout)
     Layout.jsx, SocialIcons.jsx, styles.js
-    HomePage.jsx, SlidesPage.jsx, FunZonePage.jsx
+    HomePage.jsx, SlidesPage.jsx, JustForFunPage.jsx
     assets/                      images and papers used by the pages
     presentations/               every PDF here is listed on /Slides automatically
-  projects/                      the Fun Zone projects: standalone, full-screen pages
+  projects/                      the Just For Fun projects: standalone, full-screen pages
     shared/                      drawing canvas, cursors, score graph and API helper they share
     DrawTheThing/
     RateThatHog/
-worker/                          Cloudflare Worker: /api/* for the Fun Zone projects, static assets otherwise
+worker/                          Cloudflare Worker: /api/* for the Just For Fun projects, static assets otherwise
 vite-plugins/                    build-time PDF thumbnails for /Slides
 scripts/word-list/               builds worker/words.json for Draw The Thing
 ```
