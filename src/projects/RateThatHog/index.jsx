@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import DrawingCanvas from '../shared/DrawingCanvas.jsx'
 import ScoreGraph from '../shared/ScoreGraph.jsx'
 import { CANVAS_SIZE, postDrawing, sizeSvg, svgCursor, useFixedPageWidth } from '../shared/drawing.js'
@@ -17,6 +17,8 @@ import titleUrl from './assets/Title.svg'
 const PAGE_WIDTH = 860
 const HOG_PINK = '#ffa1e0'
 const NUMBER_FONT = '"Delicious Handrawn"'
+// Set once How to play has been closed, so it only opens by itself on the first visit.
+const SEEN_HELP = 'rateThatHog.seenHowToPlay'
 const PALETTE = [
   '#000000', '#7f7f7f', '#ffffff', HOG_PINK,
   '#e53935', '#fb8c00', '#fdd835', '#43a047',
@@ -94,6 +96,14 @@ function RateThatHog() {
   const [automated, setAutomated] = useState({})
   const [color, setColor] = useState('#000000')
   const [erasing, setErasing] = useState(false)
+  // How to play shows by itself on the first visit only; the (?) button brings it back.
+  const [helpOpen, setHelpOpen] = useState(() => {
+    try {
+      return localStorage.getItem(SEEN_HELP) === null
+    } catch {
+      return true
+    }
+  })
 
   useFixedPageWidth(PAGE_WIDTH)
 
@@ -181,6 +191,8 @@ function RateThatHog() {
     <div
       className={[
         'min-h-screen flex flex-col items-center justify-center gap-6 p-4',
+        // Always light, whatever the system theme.
+        'bg-white text-black [color-scheme:light]',
         // Blocks pinch zoom where browsers ignore user-scalable=no (iOS Safari).
         'touch-pan-x touch-pan-y',
         // While the mouse is down the whole page is :active; the drawing area sets its own cursor inline.
@@ -229,7 +241,96 @@ function RateThatHog() {
           color={HOG_PINK}
         />
       </div>
+      <PressButton
+        className="fixed top-2 right-2 z-10 size-10 rounded-full border-2 bg-white text-2xl leading-none"
+        style={{ fontFamily: NUMBER_FONT }}
+        title="How to play"
+        aria-label="How to play"
+        onClick={() => setHelpOpen(true)}
+      >
+        ?
+      </PressButton>
+      <HowToPlay
+        open={helpOpen}
+        onClose={() => {
+          setHelpOpen(false)
+          try {
+            localStorage.setItem(SEEN_HELP, '1')
+          } catch {
+            // Without storage it just shows again next visit.
+          }
+        }}
+      />
     </div>
+  )
+}
+
+// A button that shrinks slightly while held down.
+function PressButton({ className = '', onPointerDown, children, ...props }) {
+  const [pressed, setPressed] = useState(false)
+  const release = () => setPressed(false)
+
+  return (
+    <button
+      {...props}
+      className={`${className} transition-[scale] duration-[37.5ms] ${pressed ? 'scale-90' : ''}`}
+      onPointerDown={e => {
+        if (e.button === 0) setPressed(true)
+        onPointerDown?.(e)
+      }}
+      onPointerUp={release}
+      onPointerLeave={release}
+      onPointerCancel={release}
+      onDragStart={e => e.preventDefault()}
+    >
+      {children}
+    </button>
+  )
+}
+
+// The × in a dialog's top-right corner.
+function CloseButton({ onClick }) {
+  return (
+    <button type="button" className="absolute top-3 right-3 size-8 cursor-pointer outline-none" aria-label="Close" onClick={onClick}>
+      <svg viewBox="0 0 24 24" className="size-full" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+        <path d="M5 5 L19 19 M19 5 L5 19" />
+      </svg>
+    </button>
+  )
+}
+
+function HowToPlay({ open, onClose }) {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const dialog = ref.current
+    if (open && !dialog.open) dialog.showModal()
+    if (!open && dialog.open) dialog.close()
+  }, [open])
+
+  return (
+    <dialog
+      ref={ref}
+      className="m-auto w-[min(32rem,calc(100vw-2rem))] border-2 border-black bg-white text-black p-6 backdrop:bg-black/40 [color-scheme:light]"
+      style={{ fontFamily: NUMBER_FONT }}
+      onCancel={e => {
+        e.preventDefault()
+        onClose()
+      }}
+      onClick={e => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <CloseButton onClick={onClose} />
+      <img src={titleUrl} alt="Rate That Hog" draggable={false} className="w-full mb-4 mt-4" />
+      <div className="flex flex-col gap-3 text-2xl leading-tight text-center mb-6">
+        <p className="text-3xl">Draw the best hog. That's it.</p>
+        <p>Get a rating of over 4.0, I dare you.</p>
+      </div>
+      <div className="flex justify-center">
+        <PressButton className="border-2 px-4 py-1 text-3xl min-w-28" style={{ background: HOG_PINK }} autoFocus onClick={onClose}>oink</PressButton>
+      </div>
+    </dialog>
   )
 }
 
